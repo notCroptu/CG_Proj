@@ -35,13 +35,13 @@ Ao multiplicar as duas, a atenuação total parecia estranha quando sobreposta c
 
 **Exemplo de Range distorcido**: (A luz de cone azul, à frente do jogador, é a luz do Unity, e vemos que os objetos com emissões no chão parecem ter um alpha uniforme até o final da emissão da luz, mesmo que a luz de cone esteja mais evidente em uma área específica).
 
-![Efeito com range aparentemente normal]()
-![Efeito com range aparentemente distorcido]()
+![Efeito com range aparentemente normal](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range1.png)
+![Efeito com range aparentemente distorcido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range2.png)
 
 **Exemplo de ângulos internos e externos distorcidos**: (Podemos observar que o Necronomicon parece estar a ser afetado por ângulos menores do que a projeção da luz de cone).
 
-![Efeito com angulos aparentemente normais]()
-![Efeito com angulos aparentemente distorcidos]()
+![Efeito com angulos aparentemente normais](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/angular1.png)
+![Efeito com angulos aparentemente distorcidos](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/angular2.png)
 
 Outro ponto é que dentro de *shader graphs* estou limitada quanto a *shadows* e não consegui arranjar maneira de afetar outros objetos se estivessem por atraz a outro relativamente á luz.A *shadow* do próprio objeto, foi facil de trabalhar já que tenho acesso ás normais dos pontos.
 Apesar destas falhas, sinto que foi uma boa ideia ter começado o projeto em *shader graph*, não só porque sem estes apontamentos iniciais não saberia coisas como a formula de *inverse square falloff*, mas acho que foi bom praticar algums metodos para obter os resultados que pretendo, e mais importante, planear como irei dar continuidade a este projeto.
