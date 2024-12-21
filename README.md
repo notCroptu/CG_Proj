@@ -53,11 +53,36 @@ Apesar destas falhas, sinto que foi uma boa ideia ter começado o projeto em *sh
 
 #### Traduzir e Modificar o *shader graph*
 
-Por isso, o que pretendo fazer neste projeto, é aplicar devolta este shader em HLSL, mas criando a minha própria emissão de luz, em vez de ter de passar valores de uma luz cone de unity existente, tal como os seus efeitos de glow.
-
-Para isso, quero ainda usar o método do unity, como a sua equação de atenuação, para manter a minha spotlight consistente.
+Neste projeto, o meu objetivo é traduzir o shader criado no Shader Graph para HLSL, aproveitando a spotlight do Unity para lidar com efeitos básicos, como a atenuação e a distribuição da luz.
 
 ### Pesquisa inicial
+
+Comecei por pesquisar como fazer uma luz uv em HLSL shaders no Unity, e encontrei este site:
+
+[Ultraviolet Lights and Invisible Ink](https://www.cyanilux.com/tutorials/ultraviolet-lights-invisible-ink/)
+
+Achei muitos dos detalhes interessantes.
+
+No primeiro tópico, onde as luses UV de Phasmophobia and Shadows of Doubt são abordadas, elas teem um tempo de fade depois da luz passar por elas, que de facto é um comportamento real, e que seria muito engraçado pensar em incorporar aqui se tiver tempo.
+
+Além disso no tópico Ultraviolet Lights, reparei que podemos apenas tirar a atenuação diretamente da luz, e para propositios deste estudo, com a intenção de testar coisas que possam requerir mais controlo sobre a luz, decidi apenas continuar com o meu plano inicial.
+
+Fui então pesquisar como passar valores de uma luz em cena para um shader HLSL, para poder passar floats como a posição, direção e angulos da luz. Decidi que ia usar a mesma abordagem aqui que usei no *shader graph*, em que os floats relativos á *luz spot* são todos globais.
+
+Estes foram os meus argumentos:
+
+1. Os valores a ver com a luz não vão mudar de material para material.
+2. Alguns valores só precisam de ser mudados uma vez, na criação da luz.
+3. Não será preciso ter um script que passa o valor da luz ao seu material, mas só um dentro da luz que passa os valores a todos os materiais.
+
+Assim evito estar a mandar os mesmos valores repetidamente para todos os materias e evito ter de ter um script para isso em cada objeto que tem o shader.
+
+Para isso comecei com o Unlit Shader e este guia:
+
+[Introduction to Shaders in Unity 3D](https://www.alanzucconi.com/2015/06/10/a-gentle-introduction-to-shaders-in-unity3d/)
+
+
+
 
 Volumetric light effect-
 <https://www.youtube.com/watch?v=rihJzWq7sE4>
