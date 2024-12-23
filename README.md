@@ -67,6 +67,8 @@ No primeiro tópico, onde as luses UV de Phasmophobia and Shadows of Doubt são 
 
 Além disso no tópico Ultraviolet Lights, reparei que podemos apenas tirar a atenuação diretamente da luz, e para propositios deste estudo, com a intenção de testar coisas que possam requerir mais controlo sobre a luz, decidi apenas continuar com o meu plano inicial.
 
+- Pensei em criar a minha própria spotlight desde o início, mas decidi deixar isso para depois. Como o foco principal do projeto não é esse e parece ser um desafio criar um shader que tenha uma luz seletiva apenas para materiais específicos, decidi primeiro concentrar-me no objetivo principal da luz UV e depois, se possível, abordar essa questão.
+
 Fui então pesquisar como passar valores de uma luz em cena para um shader HLSL, para poder passar floats como a posição, direção e angulos da luz. Decidi que ia usar a mesma abordagem aqui que usei no *shader graph*, em que os floats relativos á *luz spot* são todos globais.
 
 Estes foram os meus argumentos:
@@ -77,17 +79,87 @@ Estes foram os meus argumentos:
 
 Assim evito estar a mandar os mesmos valores repetidamente para todos os materias e evito ter de ter um script para isso em cada objeto que tem o shader.
 
-Para isso comecei com o Unlit Shader e este guia:
+Para isso comecei com um novo Unlit Shader dentro do projeto e este guia:
 
 [Introduction to Shaders in Unity 3D](https://www.alanzucconi.com/2015/06/10/a-gentle-introduction-to-shaders-in-unity3d/)
 
+Assim comecei com a montagem do cone dentro shader.
 
+Primeiro para o range, tive de pesquisar melhor a maneira que o unity usa para imitar o *inverse square falloff*. Essa pesquisa deu me a este site:
 
+[Light distance in shader - Unity threads](https://discussions.unity.com/t/light-distance-in-shader/685998/2)
 
-Volumetric light effect-
-<https://www.youtube.com/watch?v=rihJzWq7sE4>
+Esta foi a equação que retirei:
 
-<https://discussions.unity.com/t/light-distance-in-shader/685998/2>
+$$
+\text{normalizedDist} = \frac{\text{dist}}{\text{range}}
+$$
+
+$$
+\text{saturate}\left(\frac{1.0}{1.0 + 25.0 \cdot \text{normalizedDist}^2} \cdot \text{saturate}\left( (1 - \text{normalizedDist}) \cdot 5.0 \right) \right)
+$$
+
+Comparado com isto, no shader graph estava apenas a fazer um smoothstep dentro do range recebido da luz, e acho que isso foi um dos problemas que a faziam parecer mais estranha, como demonstrado no exemplo de Range destorcido acima (tópico "*O shader graph*").
+
+Basicamente, este metodo pega na distancia normalizada entre o ponto e a luz dentro do seu range, que será uma valor entre 0 e 1, onde 1 será o mais perto da luz, e passa esse valor para um metodo de atenuação mais complicado.
+
+Parece que este método é tinha mais do que estava á espera inicialmente, e combina ambos *inverse square falloff* e o *smoothstep*.
+
+#### *Inverse Square Falloff*
+
+De acordo com a defenição da lei que define a atenuação da luz na fisica:
+[Inverse-square law for Lights](http://hyperphysics.phy-astr.gsu.edu/hbase/vision/isql.html)
+
+$$
+I = \frac{P}{4\pi r^2}
+$$
+
+O fade é calculado com o seu spread em todas as direções (esferico) a partir de um raio r (a distancia do ponto á luz), então traduzimos esta formula para não haver possibilidade de ter uma divisão por 0 se o ponto for muito perto da luz:
+
+$$
+I = \frac{1}{1 + k \cdot r^2}
+$$
+
+Desse modo a lei está dependende da distancia entre a luz e o ponto apenas, mas o falloff está tambem dependende do range já que usa a normalized distance.
+
+Ao ter um +1 na base, evitamos ter uma divisão por um numero muito pequeno, ou seja vai ser sempre pelo menos 1, que ajuda a performance e evita erros NaN.
+
+A variavel k é constante e determina o quão rápido a luz desaparece (4*PI).
+
+Tudo isto é então passado no Unity com os seguintes valores:
+
+$$
+\frac{1.0}{1.0 + 25.0 \cdot \text{normalizedDist}^2}
+$$
+
+#### *smoothstep*
+
+Temos então o smoothstep, que tem acerteza que os calculos do *inverse square falloff* não cortam derrepente o fade:
+
+$$
+\text{saturate}\left( (1 - \text{normalizedDist}) \cdot 5.0 \right)
+$$
+
+Aqui, pegamos no range da luz e aplicamos um valor de 0 a 1, com 0 representando o máximo range e 1 o mínimo range. Multiplicando a normalização por 5.0, fazemos o fade não linear para a atenuação da luz, e por fim, o saturate assegura que o valor final fica sempre dentro do intervalo de 0 a 1.
+
+#### Calculos de atenuação de range finais
+
+Por fim multiplicamos os dois e colocamo-los num saturate mais uma vez para manter os valores entre 0 e 1.
+
+Pensando na minha primeira implementação tinha até tentado usar o *Inverse Square Falloff* e o *smoothstep*, porém sempre separadamente, e assim nunca obtendo o resultado esperado. Como podemos ver agora o resultado parece muito melhor comparado com a imagem inicial de distorção de range:
+
+![Efeito com range aparentemente distorcido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range2.png)
+
+![Efeito com range corrigido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range2.png)
+
+Porém na minha pesquisa achei também este site:
+
+[Custom Spotlight Calculation not working - Unity threads](https://discussions.unity.com/t/custom-spotlight-calculation-not-working/945974)
+
+No site um utilizador demonstra a spotlight custom fabricada por si próprio/a, onde parece que apesar de usar os calculos acima, continua a não dar o mesmo resultado.
+
+<https://geom.io/bakery/wiki/index.php?title=Point_Light_Attenuation>
+
 <https://discussions.unity.com/t/custom-spotlight-calculation-not-working/945974>
 <https://www.cyanilux.com/tutorials/ultraviolet-lights-invisible-ink/>
 

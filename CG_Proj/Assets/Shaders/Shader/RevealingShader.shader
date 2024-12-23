@@ -9,51 +9,62 @@ Shader "Custom/RevealingShader"
     }
     SubShader
     {
-        Tags { "RenderType"="Transparent" }
+        Tags { "RenderType" = "Transparent"  "Queue" = "Transparent" }
+        Blend SrcAlpha OneMinusSrcAlpha
         LOD 200
 
         CGPROGRAM
-        // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard fullforwardshadows
-
-        // Use shader model 3.0 target, to get nicer looking lighting
+        #pragma surface surf Standard fullforwardshadows alpha:fade
         #pragma target 3.0
 
-        float3 _SpotLightPos;
-        float3 _SpotLightDir;
-        float _LightStrengthIntensity;
-        float _LightRange;
-        float _InnerSpotAngle;
-        float _OuterSpotAngle;
-        float _Lighted;
+        float3 _SpotLightPos = float3(1, 2, 11);
+        float _LightRange = 20.0f;
+        // float3 _SpotLightDir;
+        // float _LightStrengthIntensity;
+        // float _InnerSpotAngle;
+        // float _OuterSpotAngle;
+        // float _Lighted;
 
         sampler2D _MainTex;
-
-        struct Input
-        {
-            float2 uv_MainTex;
-        };
-
         half _Glossiness;
         half _Metallic;
         fixed4 _Color;
 
-        // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
-        // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
-        // #pragma instancing_options assumeuniformscaling
-        UNITY_INSTANCING_BUFFER_START(Props)
-            // put more per-instance properties here
-        UNITY_INSTANCING_BUFFER_END(Props)
-
-        void surf (Input IN, inout SurfaceOutputStandard o)
+        struct Input
         {
-            // Albedo comes from a texture tinted by color
-            fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
+            float2 uv_MainTex;
+            float3 worldPos;
+        };
+        
+        float NormalizedDistance(float3 worldPos)
+        {
+            float dist = distance(worldPos, _SpotLightPos);
+            return dist / _LightRange;
+        }
+        
+        float InverseSquareFalloff(float normalDist)
+        {
+            return 1.0f / (1.0f + 25.0f * normalDist * normalDist);
+        }
+        
+        float SmoothStepRange(float normalDist)
+        {
+            return saturate((1.0f - normalDist) * 5.0f);
+        }
+        
+        void surf(Input IN, inout SurfaceOutputStandard o)
+        {
+            float normalizedDist = NormalizedDistance(IN.worldPos);
+            float rangeAttenuation = saturate(InverseSquareFalloff(normalizedDist) * SmoothStepRange(normalizedDist));
+                
+            // Sample the texture and apply color
+            fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
             o.Albedo = c.rgb;
-            // Metallic and smoothness come from slider variables
             o.Metallic = _Metallic;
             o.Smoothness = _Glossiness;
-            o.Alpha = c.a;
+
+            // Apply the range attenuation to the alpha channel for transparency
+            o.Alpha = c.a * rangeAttenuation;
         }
         ENDCG
     }
