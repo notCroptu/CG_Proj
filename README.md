@@ -55,7 +55,7 @@ Apesar destas falhas, sinto que foi uma boa ideia ter começado o projeto em *sh
 
 Neste projeto, o meu objetivo é traduzir o shader criado no Shader Graph para HLSL, aproveitando a spotlight do Unity para lidar com efeitos básicos, como a atenuação e a distribuição da luz.
 
-### Pesquisa inicial
+### Realização do *shader* em *HLSL*
 
 Comecei por pesquisar como fazer uma luz uv em HLSL shaders no Unity, e encontrei este site:
 
@@ -142,15 +142,77 @@ $$
 
 Aqui, pegamos no range da luz e aplicamos um valor de 0 a 1, com 0 representando o máximo range e 1 o mínimo range. Multiplicando a normalização por 5.0, fazemos o fade não linear para a atenuação da luz, e por fim, o saturate assegura que o valor final fica sempre dentro do intervalo de 0 a 1.
 
-#### Calculos de atenuação de range finais
+#### Calculos de atenuação de *range* finais
 
 Por fim multiplicamos os dois e colocamo-los num saturate mais uma vez para manter os valores entre 0 e 1.
 
-Pensando na minha primeira implementação tinha até tentado usar o *Inverse Square Falloff* e o *smoothstep*, porém sempre separadamente, e assim nunca obtendo o resultado esperado. Como podemos ver agora o resultado parece muito melhor comparado com a imagem inicial de distorção de range:
+Pensando na minha primeira implementação tinha até tentado usar o *Inverse Square Falloff* e o *smoothstep*, porém sempre separadamente, e assim nunca obtendo o resultado esperado.
+
+#### Passar de *Standard Surface Shader* para *URP shader*
+
+Durante esta fase de pesquisa também aprendi que terei de usar:
+
+```hlsl
+Blend SrcAlpha OneMinusSrcAlpha
+ZWrite Off
+```
+
+- *ZWrite Off* - Para ter acerteza que os materiais que usaram este shader sejam renderizados primeiro, e sem depth buffer, para que não seja escondidos incorretamente (com esplicado na aula ).
+- *Blend SrcAlpha OneMinusSrcAlpha* - Esta parte diz como o material com transparecia, sendo transparente ou não vai misturar as cores com o os objetos atráz dele.
+
+Que foi retirado do video onde iniciei a pesquisa:
+
+[The Magic Revealing Flashlight Shader](https://www.youtube.com/watch?v=b4utgRuIekk)
+
+Tive também de mudar o shader de Standard Surface Shader para um URP shader, porque depois de algumas pesquisas, e nenhum erro a aparecer no console, o shader continuava rosa.
+
+Percebi que provavelmente teria alguma coisa haver com a Render Pipeline que tinha escolhido, tendo estes erros sido a razão por eu tentar fazer este efeito em shader graph inicialmente.
+
+Tive de:
+
+1. Usar HLSLPROGRAM e o package HLSL necessário;
+2. Adicionar vert e frag;
+3. Mudar float3 para half3;
+
+Que soube a partir desta docomentação do Unity:
+
+[URP Unlit Basic Shader](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@8.2/manual/writing-shaders-urp-basic-unlit-structure.html)
+
+Não foi muito dificil, mas tive alguns problemas a tentar entender como passar a _MeinTex para o material, que após seguir alguns threads sobre Unity Samples encontrei:
+
+[Sample Code - Unity threads](https://discussions.unity.com/t/no-way-to-get-global-shader-values-in-subgraphs/795977/20)
+
+Ajudou me imenso, e o shader passou finalmente a funcionar como devia, não rosa, e com o que já tinha implementado de atenuação a funcionar.
+
+#### Ajustes da atenuação do *range*
+
+Aqui chegamos a um novo problema, a atenuação continuava a não estar de acordo com a da luz em cena:
+
+> **Nota:** As próximas imagens relativas ao range apresentam um cubo iluminado á esquerda, a usar o shader graph inicial, e um cubo iluminado á direita, a usar o shader descrito neste projeto.
+
+![Atenuação de Range distorcida incial](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLrange_v1.png)
+
+Primeiro pensei que talvez o valor da constante k na *Inverse Square Falloff* do Unity estivesse errado e tivesse de ser o mesmo que na sua lei da fisica, então tentei corrigila para 4 * PI, com este resultado:
+
+![Atenuação de Range distorcida com k = 4 * PI](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLrange_v2.png)
+
+Claramente não foi corrigido o problema.
+
+Pensando em algumas formulas que tinha visto no passado do Unity, achei que talvez a variavel constante k fosse na verdade exatamente a intensidade descrita no inspetor da luz, e fui experimentar:
+
+![Atenuação de Range corrigda](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLrange_v3.png)
+
+Parece-me ter funcionado, apesar de ainda estar um pouco visivel, mas acho que isso vai mudar quando lhe aplicar o resto das atenuações.
+
+Como podemos ver agora o resultado parece muito melhor comparado com a imagem da distorção de range inicial:
 
 ![Efeito com range aparentemente distorcido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range2.png)
 
-![Efeito com range corrigido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range2.png)
+
+
+
+
+
 
 Porém na minha pesquisa achei também este site:
 
@@ -165,8 +227,6 @@ No site um utilizador demonstra a spotlight custom fabricada por si próprio/a, 
 
 <https://www.alanzucconi.com/2015/06/10/a-gentle-introduction-to-shaders-in-unity3d/>
 <https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/UnityDeferredLibrary.cginc>
-
-### Realização do *shader* em *HLSL*
 
 ### Conclusões
 

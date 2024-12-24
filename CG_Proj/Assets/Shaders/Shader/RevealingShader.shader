@@ -9,64 +9,84 @@ Shader "Custom/RevealingShader"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent"  "Queue" = "Transparent" }
+        Tags { "RenderType"="Transparent" "Queue"="Transparent" }
         Blend SrcAlpha OneMinusSrcAlpha
-        LOD 200
+        ZWrite Off
 
-        CGPROGRAM
-        #pragma surface surf Standard fullforwardshadows alpha:fade
-        #pragma target 3.0
-
-        float3 _SpotLightPos = float3(1, 2, 11);
-        float _LightRange = 20.0f;
-        // float3 _SpotLightDir;
-        // float _LightStrengthIntensity;
-        // float _InnerSpotAngle;
-        // float _OuterSpotAngle;
-        // float _Lighted;
-
-        sampler2D _MainTex;
-        half _Glossiness;
-        half _Metallic;
-        fixed4 _Color;
-
-        struct Input
+        Pass
         {
-            float2 uv_MainTex;
-            float3 worldPos;
-        };
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 3.0
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            float3 _SpotLightPos = float3(1, 2, 11);
+            float _LightRange = 20.0f;
+            // float3 _SpotLightDir;
+            float _LightStrengthIntensity;
+            // float _InnerSpotAngle;
+            // float _OuterSpotAngle;
+            // float _Lighted;
         
-        float NormalizedDistance(float3 worldPos)
-        {
-            float dist = distance(worldPos, _SpotLightPos);
-            return dist / _LightRange;
-        }
-        
-        float InverseSquareFalloff(float normalDist)
-        {
-            return 1.0f / (1.0f + 25.0f * normalDist * normalDist);
-        }
-        
-        float SmoothStepRange(float normalDist)
-        {
-            return saturate((1.0f - normalDist) * 5.0f);
-        }
-        
-        void surf(Input IN, inout SurfaceOutputStandard o)
-        {
-            float normalizedDist = NormalizedDistance(IN.worldPos);
-            float rangeAttenuation = saturate(InverseSquareFalloff(normalizedDist) * SmoothStepRange(normalizedDist));
-                
-            // Sample the texture and apply color
-            fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
-            o.Albedo = c.rgb;
-            o.Metallic = _Metallic;
-            o.Smoothness = _Glossiness;
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+            half _Glossiness;
+            half _Metallic;
+            half4 _Color;
 
-            // Apply the range attenuation to the alpha channel for transparency
-            o.Alpha = c.a * rangeAttenuation;
+            struct VertexInput
+            {
+                float4 vertex : POSITION;
+                float2 uv : TEXCOORD0;
+            };
+
+            struct VertexOutput
+            {
+                float4 pos : SV_POSITION;
+                float2 uv : TEXCOORD0;
+                float3 worldPos : TEXCOORD1;
+            };
+        
+            float NormalizedDistance(float3 worldPos)
+            {
+                float dist = distance(worldPos, _SpotLightPos);
+                return dist / _LightRange;
+            }
+            
+            float InverseSquareFalloff(float normalDist)
+            {
+                return 1.0f / (1.0f + _LightStrengthIntensity * normalDist * normalDist);
+            }
+            
+            float SmoothStepRange(float normalDist)
+            {
+                return saturate((1.0f - normalDist) * 5.0f);
+            }
+
+            VertexOutput vert(VertexInput v)
+            {
+                VertexOutput o;
+                o.pos = TransformObjectToHClip(v.vertex.xyz);
+                o.uv = v.uv;
+                o.worldPos = TransformObjectToWorld(v.vertex.xyz);
+                return o;
+            }
+
+            float4 frag(VertexOutput i) : SV_TARGET
+            {
+                float normalizedDist = NormalizedDistance(i.worldPos);
+                float rangeAttenuation = saturate(InverseSquareFalloff(normalizedDist) * SmoothStepRange(normalizedDist));
+
+                half4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * _Color;
+
+                texColor.a *= rangeAttenuation;
+
+                return texColor;
+            }
+            ENDHLSL
         }
-        ENDCG
     }
     FallBack "Diffuse"
 }
