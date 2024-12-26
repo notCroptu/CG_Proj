@@ -24,10 +24,10 @@ Shader "Custom/RevealingShader"
 
             float3 _SpotLightPos = float3(1, 2, 11);
             float _LightRange = 20.0f;
-            // float3 _SpotLightDir;
-            float _LightStrengthIntensity;
-            // float _InnerSpotAngle;
-            // float _OuterSpotAngle;
+            float3 _SpotLightDir = float3(0, -1, 0);
+            float _LightStrengthIntensity = 1.0f;
+            float _InnerSpotAngle = cos(radians(15.0));
+            float _OuterSpotAngle = cos(radians(30.0));
             // float _Lighted;
         
             TEXTURE2D(_MainTex);
@@ -60,9 +60,19 @@ Shader "Custom/RevealingShader"
                 return 1.0f / (1.0f + _LightStrengthIntensity * normalDist * normalDist);
             }
             
-            float SmoothStepRange(float normalDist)
+            float SmoothRange(float normalDist)
             {
                 return saturate((1.0f - normalDist) * 5.0f);
+            }
+
+            float AngleAttenuation(float3 lightDir)
+            {
+                lightDir = normalize(lightDir);
+
+                // Since both directions are normalized it's fine to get the angle between them using dot product
+                float angle = dot(lightDir, (normalize(_SpotLightDir)));
+
+                return smoothstep(_OuterSpotAngle, _InnerSpotAngle, angle);
             }
 
             VertexOutput vert(VertexInput v)
@@ -76,12 +86,15 @@ Shader "Custom/RevealingShader"
 
             float4 frag(VertexOutput i) : SV_TARGET
             {
+                float3 toLight = normalize(_SpotLightPos - i.worldPos);
+
                 float normalizedDist = NormalizedDistance(i.worldPos);
-                float rangeAttenuation = saturate(InverseSquareFalloff(normalizedDist) * SmoothStepRange(normalizedDist));
+                float rangeAttenuation = saturate(InverseSquareFalloff(normalizedDist) * SmoothRange(normalizedDist));
+                float angleAttenuation = AngleAttenuation(toLight);
 
                 half4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * _Color;
 
-                texColor.a *= rangeAttenuation;
+                texColor.a *= rangeAttenuation * angleAttenuation;
 
                 return texColor;
             }

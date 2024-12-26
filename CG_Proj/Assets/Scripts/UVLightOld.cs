@@ -38,8 +38,12 @@ public class UVLightOld : MonoBehaviour
 
         Shader.SetGlobalFloat("_LightStrengthIntensity", _uvLight.intensity);
         Shader.SetGlobalFloat("_LightRange", _uvLight.range);
-        Shader.SetGlobalFloat("_InnerSpotAngle", _uvLight.innerSpotAngle);
-        Shader.SetGlobalFloat("_OuterSpotAngle", _uvLight.spotAngle);
+        Shader.SetGlobalFloat("_InnerSpotAngle", Mathf.Cos(0.5f * Mathf.Deg2Rad * _uvLight.innerSpotAngle));
+        Shader.SetGlobalFloat("_OuterSpotAngle", Mathf.Cos(0.5f * Mathf.Deg2Rad * _uvLight.spotAngle));
+
+        // Update the old shader graph values still, so that we can still have a comparison
+        Shader.SetGlobalFloat("_InnerSpotAngleOld", _uvLight.innerSpotAngle);
+        Shader.SetGlobalFloat("_OuterSpotAngleOld", _uvLight.spotAngle);
 
         _uvSpotLightObject.SetActive(false);
         if (_uvSpotLightReboundObject != null)
@@ -72,6 +76,9 @@ public class UVLightOld : MonoBehaviour
             Shader.SetGlobalVector(_lightPositionID, _uvLight.transform.position);
             Shader.SetGlobalVector(_spotLightDirID, -_uvLight.transform.forward);
         }
+
+        Debug.Log("spotanglein: " + Shader.GetGlobalFloat("_InnerSpotAngle") + "      spotangleout: " + Shader.GetGlobalFloat("_OuterSpotAngle"));
+        Debug.Log("old spotanglein: " + Shader.GetGlobalFloat("_InnerSpotAngleOld") + "      old spotangleout: " + Shader.GetGlobalFloat("_OuterSpotAngleOld"));
     }
 
     /// <summary>

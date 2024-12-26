@@ -29,7 +29,7 @@ Além disso, embora eu tivesse os valores corretos da luz necessários para a si
 
 No caso do fade de alcance, o *Unity* usa uma textura pré-feita com uma equação de atenuação que imita a equação física do *inverse square falloff*, para evitar a luz infinita (com clamping).
 
-O fade dos ângulos internos e externos deveria ser calculado com um *lerp* linear, mas no *shader graph*, usei*smoothstep* , e devido aos cálculos extras de potências e multiplicações, ele também ficou distorcido.
+O fade dos ângulos internos e externos, assumo que como eu usei, deviam ser calculados com *smoothstep*. Porém, devido aos cálculos extras de potências e multiplicações, ele também ficou distorcido.
 
 Ao multiplicar as duas, a atenuação total parecia estranha quando sobreposta com a spot light do *Unity* onde vai buscar os valores de range, angulos, posição etc.
 
@@ -130,9 +130,9 @@ $$
 \frac{1.0}{1.0 + 25.0 \cdot \text{normalizedDist}^2}
 $$
 
-#### *smoothstep*
+#### *Linear scaling*
 
-Temos então o*smoothstep* , que tem acerteza que os calculos do *inverse square falloff* não cortam derrepente o fade:
+Temos então o *Linear scaling* , que tem acerteza que os calculos do *inverse square falloff* não cortam derrepente o fade:
 
 $$
 \text{saturate}\left( (1 - \text{normalizedDist}) \cdot 5.0 \right)
@@ -144,9 +144,9 @@ Aqui, pegamos no *range* da luz e aplicamos um valor de 0 a 1, com 0 representan
 
 Por fim multiplicamos os dois e colocamo-los num saturate mais uma vez para manter os valores entre 0 e 1.
 
-Pensando na minha primeira implementação tinha até tentado usar o *Inverse Square Falloff* e o *smoothstep*, porém sempre separadamente, e assim nunca obtendo o resultado esperado.
+Pensando na minha primeira implementação tinha até tentado usar o *Inverse Square Falloff* e o *Linear scaling*, porém sempre separadamente, e assim nunca obtendo o resultado esperado, acabando por ter de usar o *smoothstep*.
 
-#### Passar de *Standard Surface Shader* para *URP shader*
+### Passar de *Standard Surface Shader* para *URP shader*
 
 Durante esta fase de pesquisa também aprendi que terei de usar:
 
@@ -206,17 +206,41 @@ Como podemos ver agora o resultado parece muito melhor comparado com a imagem da
 
 ![Efeito com *range* aparentemente distorcido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range2.png)
 
+#### Atenuação de angulos
 
+Para a atenuação de angulos, usei este *thread* como referencia:
 
+[Custom spotlight calculation not working - Unity threads](https://discussions.unity.com/t/custom-spotlight-calculation-not-working/945974)
 
+Não porque estava a funcionar como eu queria, mas porque não estava. Ou seja, o utilizador, nos seus calculos de atenuação da *spotlight*, estava a a fazer um *lerp*, fazendo com que a sua *spotlight* tivesse uma linha de luz visivel a separar a sua emissão onde o seu *inner angle* começa.
 
+Infelizmente este *thread* também realçou que existem muitos outros calculos pelo *Unity* que não vou conseguir reproduzir como eu quero.
 
+Por isso, decidi que ia manter a forma como calculei esta parte no *shader graph*, e tentar usar um *smoothstep*, mas sem calculos estranhos adicionais.
 
-Porém na minha pesquisa achei também este site:
+Além disso, quando estava a implementar esta parte no *shader graph*, o angulo da luz estava sempre a mais ou menos o dobro do que parecia dever ser. Por muito tempo não percebi porque, e tentei ajustar de varias formas, no final tive de investigar um pouco e só depois percebi que tinha de multiplicar o *inner* e *outer* angles por 0.5, porque quando a uma *spotlight* é feita no unity, estes angulos são na verdade o angulo inteiro em vez de só de metade do cone, que não é muito prático para aqui.
 
-[Custom Spotlight Calculation not working - Unity threads](https://discussions.unity.com/t/custom-spotlight-calculation-not-working/945974)
+Desse modo, acho que vou optar por apenas já mandar o angulo pré dividido pelo *script* da luz, e nesse caso trato também de passá-los para radianos e aplicar-lhes o coseno nesse mesmo sitio.
 
-No site um utilizador demonstra a spotlight custom fabricada por si próprio/a, onde parece que apesar de usar os calculos acima, continua a não dar o mesmo resultado.
+Os cálculos em si foram feitos para transformar os ângulos para um formato adequado para o cálculo (radianos) e determinar o ângulo entre a direção da luz e a direção do ponto em questão. Por fim, usamos o smoothstep para criar uma transição suave entre os valores dos ângulos inner e outer, resultando em um valor entre 0 e 1, que pode ser usado no canal alpha.
+Também tive de adicionar um movimento ao jogador para testar esta parte mais facilmente.
+
+Estes foram os resultados:
+
+> **Nota:** A primeira imagem é o angulo do *shader graph*, a segunda a do *shader* do projeto.
+
+![Efeito com angulo aparentemente distorcido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/angular3.png)
+
+![Efeito com angulo corrigido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLangle_v1.png)
+
+Na minha opinião, ficou muito mais natural.
+
+Além disso, a atenuação total, *range* e angulo comibinados, parecem ter confirmado que só precisava de juntar os dois para corrigir o problema final do tópico "Ajustes da atenuação do *range*":
+
+> **Nota:** Á esquerda temos o *shader graph* inicial, á direira o do *shader* do projeto.
+
+![Comparação de atenuação completa](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/Attenuation1.gif)
+
 
 <https://geom.io/bakery/wiki/index.php?title=Point_Light_Attenuation>
 
@@ -225,6 +249,8 @@ No site um utilizador demonstra a spotlight custom fabricada por si próprio/a, 
 
 <https://www.alanzucconi.com/2015/06/10/a-gentle-introduction-to-shaders-in-unity3d/>
 <https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/UnityDeferredLibrary.cginc>
+
+<https://discussions.unity.com/t/light-distance-in-shader/685998/2>
 
 ### Conclusões
 
