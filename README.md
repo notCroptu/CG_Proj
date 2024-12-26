@@ -220,9 +220,24 @@ Por isso, decidi que ia manter a forma como calculei esta parte no *shader graph
 
 Além disso, quando estava a implementar esta parte no *shader graph*, o angulo da luz estava sempre a mais ou menos o dobro do que parecia dever ser. Por muito tempo não percebi porque, e tentei ajustar de varias formas, no final tive de investigar um pouco e só depois percebi que tinha de multiplicar o *inner* e *outer* angles por 0.5, porque quando a uma *spotlight* é feita no unity, estes angulos são na verdade o angulo inteiro em vez de só de metade do cone, que não é muito prático para aqui.
 
-Desse modo, acho que vou optar por apenas já mandar o angulo pré dividido pelo *script* da luz, e nesse caso trato também de passá-los para radianos e aplicar-lhes o coseno nesse mesmo sitio.
+Desse modo, acho que vou optar por apenas já mandar o angulo pré dividido pelo *script* da luz, e nesse caso trato também de passá-los para radianos nesse mesmo sitio.
 
-Os cálculos em si foram feitos para transformar os ângulos para um formato adequado para o cálculo (radianos) e determinar o ângulo entre a direção da luz e a direção do ponto em questão. Por fim, usamos o smoothstep para criar uma transição suave entre os valores dos ângulos inner e outer, resultando em um valor entre 0 e 1, que pode ser usado no canal alpha.
+Os cálculos em si foram:
+
+1. Transformar os angulos para radianos;
+2. Deterninar o angulo entre a direção da luz e a direção do ponto em questão.
+3. Smoothstep para criar uma transição suave entre os valores dos ângulos inner e outer.
+
+Transforma-mos os angulos com coseno por ser mais eficiente compara-los dessa forma, já que a formula do *dot*, se os valores estiverem normalizados, pode ser descontruida para nos dar o coseno do angulo entre dois vetores:
+
+$$ \text{dot}(A, B) = |A| \cdot |B| \cdot \cos(\theta) $$
+$$ \downarrow $$
+$$ \text{dot}(A, B) = |1| \cdot |1| \cdot \cos(\theta) $$
+$$ \downarrow $$
+$$ \cos(\theta) = \text{dot}(A, B) $$
+
+No fim, resulta num valor entre 0 e 1, para ser usado no canal alpha.
+
 Também tive de adicionar um movimento ao jogador para testar esta parte mais facilmente.
 
 Estes foram os resultados:
