@@ -55,7 +55,7 @@ Apesar destas falhas, sinto que foi uma boa ideia ter começado o projeto em *sh
 
 Neste projeto, o meu objetivo é traduzir o shader criado no *shader graph* para HLSL, aproveitando a spotlight do *Unity* para lidar com efeitos básicos, como a atenuação e a distribuição da luz.
 
-### Realização do *shader* em *HLSL*
+## Realização do *shader* em *HLSL*
 
 Comecei por pesquisar como fazer uma luz uv em HLSL shaders no Unity, e encontrei este site:
 
@@ -83,7 +83,9 @@ Para isso comecei com um novo Unlit Shader dentro do projeto e este guia:
 
 [Introduction to Shaders in Unity 3D](https://www.alanzucconi.com/2015/06/10/a-gentle-introduction-to-shaders-in-unity3d/)
 
-Com isso, comecei a construir o cone dentro do *shader*.
+Com isso, comecei a construir a *spotlight* dentro do *shader*.
+
+### Atenuação de *range*
 
 Primeiro para o range, tive de pesquisar melhor a maneira que o *Unity* usa para imitar o *inverse square falloff*. Essa pesquisa deu me a este site:
 
@@ -206,7 +208,7 @@ Como podemos ver agora o resultado parece muito melhor comparado com a imagem da
 
 ![Efeito com *range* aparentemente distorcido](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/range2.png)
 
-#### Atenuação de angulos
+### Atenuação de angulos
 
 Para a atenuação de angulos, usei este *thread* como referencia:
 
@@ -256,6 +258,80 @@ Além disso, a atenuação total, *range* e angulo comibinados, parecem ter conf
 
 ![Comparação de atenuação completa](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/Attenuation1.gif)
 
+### *Shadows*
+
+Agora que temos a atenuação, tudo o que nos falta será shadows, para que pontos não visiveis pela luz não sejam visiveis.
+
+Tinha tentado aplicar isto no *shader graph*, mas com acesso limitado só consegui aplicar sombras baseadas nas normais dos pontos.
+
+Desse modo, como visto anteriror mente, não poderei apenas calcular o *depth para as shadows com o *depth buffer*, por causa de objetos transparentes, mas vou tentar usar *shadow maps*.
+
+Além disso, de acordo com este *thread*:
+
+[Shadow mapping, distance versus depth comparison? - Stack Overflow](https://stackoverflow.com/questions/23078666/shadow-mapping-distance-versus-depth-comparison)
+
+A segunda opção seria mais eficiente de qualquer forma.
+
+#### *Shadow Map* por script
+
+Pesquisei como criar o meu shadow map e encontrei isto:
+
+[Shader access to shadow map - Unity threads](https://discussions.unity.com/t/shader-access-to-shadow-map/421264/5)
+
+Então, antes que podesse acessar o shadow map da minha luz na cena, teria de cria-lo, por *script*. E como detalhado no *link* acima, podia apenas copiar o shadow map existente da minha luz.
+
+Implementei o esquema detalhado no *link* no script da minha *spotlight*, trocando a luz pela minha *spotlight*.
+
+Agora com um *shadow map* que podia usar no meu shader, fui implementa-lo.
+
+Como era uma textura, usei o mesmo método com que tive dificuldade na *_MeinTex*. Mas como esta textura estava a ser guardada a partir do *Rendering* do Unity tive de trocar "*i.uv*" por "*screenUV*", uma posição escalada e adaptada do ponto no ecrã ("*pos*").
+
+Multipliquei o resultado do "*.a*" do *sampler* ao *alpha* da textura final e foi isto que deu:
+
+> **Nota:** O chão agora tem também um material UV, para trabalhar o *shadow map* mais facilmente.
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+Não o que eu queria de todo... Mas pensei que secalhar tinha sido por ter extraido apenas o *alpha* da textura.
+
+Tentei usar apenas a *shadow mask* em vez de só o seu *alpha* e ficou assim:
+
+![Shadows continuam verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v2.png)
+
+Continuava verde, apesar de estar mais mutado, e então lembrei-me que estava a multiplicar a cor pela textura em cima, e tentei mudá-la no inspetor:
+
+![Shadows distorcidas pela cor](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v3.png)
+
+Depois de ir ver o que estava a acontecer no *Frame Debugger* do *Unity*, reparei que o *command buffer* que supostamente devia estar a ser chamado no *After Shadow Map* não estava lá aparecer.
+
+Tentei de várias maneiras *debug* da lógica, mas de nenhuma maneira conseguia fazer o *command buffer* passar, excepto quando manualmente o chamava no update. Porém, como eu no update não estava a ter acerteza do *pass* onde o *command buffer* era chamado, ele nunca estava a capturar a textura no sitio certo, resultando numa textura preta.
+
+Tive de ir pesquisar o porque disto melhor, e demorei algum tempo visto não haver muita documentação de um método errado de fazer as coisas, e contrei este thread:
+
+[Access shadow map in URP](https://discussions.unity.com/t/access-shadow-map-in-urp/800211)
+
+O utilizador no thread pergunta porque é que os métodos de ir buscar os shadow maps dele são diferentes em *built-in render system* E *URP*. E assim descobri que URP não utiliza *Light Events* derrotando o propósito todo do que eu estava a fazer.
+
+Para além disso, no thread o utilizador tem um propósito diferente com os *shadow maps*, resultando que só precisa do *shadow map* da main light, que é muito mais facil de adquirir em *URP*, já que a *Shader Library* de *Lighting* o disponibiliza.
+
+#### *Depth Pass*
+
+Por causa do tópico anterior, decidi apenas usar o depth com ZWrite no shader URP para saber se um vertex está na luz ou não.
+
+[Shadow Mapping](https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping)
+
+Primeiro tive de criar uma nova textura onde iria guardar o *shadow map*, num novo *Pass*, porque o que estava a usar já tinha o *depth* desativado, porcausa da transparencia.
+
+Por fim, as sombras já teem blending porque tenho "*Blend SrcAlpha OneMinusSrcAlpha*" incluido no *shader* pela atenuação do cone.
+
+28/12/2024 - historico para ir buscar os links.
+
+<https://discussions.unity.com/t/trying-to-find-the-fields-on-the-light-struct-returned-by-getadditionallight/792693/4>
+<https://docs.unity3d.com/2019.4/Documentation/Manual/shadow-mapping.html>
+<https://www.youtube.com/watch?v=1bm0McKAh9E>
+<https://discussions.unity.com/t/directional-light-view-matrix-computation/888845/2>
+<https://discussions.unity.com/t/can-i-see-the-calculation-of-unity_matrixvp/197526/2>
+<https://discussions.unity.com/t/depth-texture-from-custom-shader-trouble/901260/3>
 
 <https://geom.io/bakery/wiki/index.php?title=Point_Light_Attenuation>
 
@@ -266,6 +342,10 @@ Além disso, a atenuação total, *range* e angulo comibinados, parecem ter conf
 <https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/UnityDeferredLibrary.cginc>
 
 <https://discussions.unity.com/t/light-distance-in-shader/685998/2>
+
+<https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@16.0/manual/use-built-in-shader-methods-shadows.html>
+
+<https://forums.kodeco.com/t/chapter-14-spotlight-shadow-map/60775/2>
 
 ### Conclusões
 
