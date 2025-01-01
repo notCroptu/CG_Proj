@@ -350,39 +350,44 @@ De todos os valores que podia usar para comparar, escolhi a *direction* porque j
 
 Assim tinha as shadows implementadas.
 
-### *Depth* para objetos transparentes
+### *Rendering* para objetos transparentes
 
 Porém! Ao testar um dos meus objetos com apenas o material UV, deparei me com algo inesperado, quando lhe era apontada a luz, o objeto não renderizava a textura:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![Objeto completamente transparente](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v1.png)
 
 Mas quando olhava para a textura com um objeto com um *shader Lit* do URP, ele renderizava apenas na união dos dois:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![União das texturas com o Lit shader por baixo](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v2.png)
 
 O mais estranho era que, de alguma maneira, com a posição da camera que estava a ver o objeto (na camera do janela scene a mesma coisa acontecia), ele renderizava ou não corretamente:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+> **Nota:** A primeira imagem é mais de perto do objeto, a segunda mais longe,
+
+![Perto](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v5.png)
+![Longe](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v4.png)
 
 Testei tambem retirar a logica aplicada das sombras, que mostrou não estar a influenciar isto:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![Shadow depth sem influencia da Render Queue](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v3.png)
 
-Então criei um objeto *Lit* de URP com os parametros a fazer o efeito de transparencia que queria para o meu *shader*:
+Então criei um objeto *Lit* de URP com os parametros para ver se era possivel ter o efeito de transparencia que queria para o meu *shader*:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![Objeto de referencia](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v6.png)
 
-E segui por ir ao *shader Lit* para ver qual a lógica que estava a usar, e tentar perceber a o que o diferenciava do meu na parte da *RenderQueue*. Isto porque já tinha testado usar um *Shadow Caster* pass para corrigir, mas isso só fez a transparencia ficar preta.
+E segui por ir ao *shader Lit* para ver qual a lógica que estava a usar, e tentar perceber a o que o diferenciava do meu na parte da *RenderQueue*.
+Isto porque já tinha testado usar um *Shadow Caster* pass para corrigir, mas isso só fez a transparencia ficar preta.
 
 Descobri que ao usar estas mesmas tags:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+`"RenderPipeline"="UniversalPipeline"`
+`"RenderType"="Transparent"`
+`"UniversalMaterialType" = "Lit"`
+`"Queue" = "Transparent"`
 
 E com o *Light Mode* como *Universal Forward*, a transparencia fica corrigida:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![Shader com Rendering the transparencia](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v8.png)
 
 No fim, só precisava de tirar o *shadow casting* do *shader*, porque como ele vai assumir que vai apenas iluminar mensagens escondidas, que não teem peso, ter sempre transparencia não é necessário, e fica estranho.
 O material base do objeto onde este shader será aplicado, com as suas próprias configurações vai tratar das sombras como quiser.
@@ -395,7 +400,7 @@ Aparente o *fallback* era o que estava a causar o problema, porque ele em si apl
 
 Depois de retira-lo o objeto agora tinha o resultado esperado:
 
-![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![Shadows Caster desativado](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v9.png)
 
 ### *Shadow acne*
 
