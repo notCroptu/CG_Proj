@@ -4,62 +4,26 @@ Shader "Custom/RevealingShader"
     {
         _MainTex ("Texture to be Revealed", 2D) = "white" {}
         _Color ("Color", Color) = (1,1,1,1)
+        _AlphaClip ("Alpha Clip", Range(0, 1)) = 0.01
     }
     SubShader
     {
-        Blend SrcAlpha OneMinusSrcAlpha
-
-        Pass
+        Tags
         {
-            Name "DepthPass"
-            Tags { "LightMode"="UniversalForward" }
-            
-            ZWrite On      // Write depth
-            ZTest LEqual   // Test against depth buffer
-            ColorMask 0    // Don't write color, only depth
-
-            Cull Back
-
-            HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment fragDepth
-            #pragma target 3.0
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-            struct VertexInput
-            {
-                float4 vertex : POSITION;
-            };
-
-            struct VertexOutput
-            {
-                float4 pos : SV_POSITION;
-            };
-
-            // Depth pass fragment shader (no color output)
-            float4 fragDepth(VertexOutput i) : SV_Target
-            {
-                return float4(1, 0, 0, 0); // Ensures depth is written
-            }
-
-            VertexOutput vert(VertexInput v)
-            {
-                VertexOutput o;
-                o.pos = TransformObjectToHClip(v.vertex.xyz);
-                return o;
-            }
-
-            ENDHLSL
+            "RenderPipeline"="UniversalPipeline"
+            "RenderType"="Transparent"
+            "UniversalMaterialType" = "Lit"
+            "Queue" = "Transparent"
         }
-
         Pass
         {
             Name "NormalPass"
-            Tags { "RenderType"="Transparent" "Queue"="Overlay" }
-            ZWrite Off
+            Tags { "LightMode" = "UniversalForward" }
+            Cull Off
+            Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
             ZTest LEqual
-            Cull Back
+            ZWrite Off
+            
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -69,10 +33,10 @@ Shader "Custom/RevealingShader"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
-            
 
-            #define MAX_ADDITIONAL_LIGHTS 8
+            #pragma multi_compile_fog
+            
+            #define MAX_ADDITIONAL_LIGHTS 4
 
             uniform float _LightRange;
             uniform half3 _LightColor;
@@ -82,15 +46,11 @@ Shader "Custom/RevealingShader"
             uniform float _OuterSpotAngle;
             uniform float _Lighted;
             uniform float3 _SpotLightPos;
-            uniform float4x4 _SpotlightViewMatrix;
-            uniform float4x4 _SpotlightProjectionMatrix;
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
             half4 _Color;
-
-            TEXTURE2D(_CameraDepthTexture);
-            SAMPLER(sampler_CameraDepthTexture);
+            float _AlphaClip;
 
             struct VertexInput
             {
@@ -105,7 +65,6 @@ Shader "Custom/RevealingShader"
                 float2 uv : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
                 float3 normalWS : TEXCOORD2;
-                float4 shadowCoord : TEXCOORD3;
             };
 
             // Calculate normalized distance from the light position
@@ -134,21 +93,15 @@ Shader "Custom/RevealingShader"
                 float angle = dot(lightDir, normalize(_SpotLightDir));
                 return smoothstep(_OuterSpotAngle, _InnerSpotAngle, angle);
             }
-
-            uniform int _LightIndex;
-
-            // Sample depth from the camera's depth texture
+            
+            // Sample depth from URP Additional Lights
             half SampleDepth(float3 worldPos, float3 normal)
             {
                 half shadowDepth = 0.0f; // Accumulate weighted shadow depth
-                // int additionalLightCount = GetAdditionalLightsCount();
             
-                float bestMatchWeight = 0.0f; // Keep track of the strongest matching weight
-
-                // Fade not working, to fix acne
-                // float biased = ApplyShadowBias(worldPos, normal, normalize(_SpotLightDir));
+                float bestMatchWeight = 0.75f; // Keep track of the strongest matching weight, and give it a minimum
             
-                for (int i = 0; i < 8; i++)
+                for (int i = 0; i < 4; i++)
                 {
                     // Fetch light properties
                     Light light = GetAdditionalPerObjectLight(i, worldPos);
@@ -157,22 +110,16 @@ Shader "Custom/RevealingShader"
                     // Compute direction similarity (dot product, higher is better)
                     float matchWeight = saturate(dot(lightDir, normalize(_SpotLightDir)));
             
-                    // Track the best match (optional if you want a single match result)
+                    // Track the best match, if any
                     if (matchWeight > bestMatchWeight)
                     {
                         bestMatchWeight = matchWeight;
-                        shadowDepth = AdditionalLightRealtimeShadow(i, worldPos);
+                        shadowDepth = light.shadowAttenuation;
                     }
                 }
 
                 shadowDepth = saturate(shadowDepth);
-                
-                // Fade not working, to fix acne
-                // half shadowFade = GetAdditionalLightShadowFade(worldPos);
-                // shadowDepth *= shadowFade;
-                // shadowDepth = max(shadowDepth, 0.2f);
             
-                // Optionally, return shadow depth from the best match only
                 return shadowDepth;
             }
 
@@ -184,7 +131,6 @@ Shader "Custom/RevealingShader"
                 o.uv = v.uv;
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
                 o.normalWS = normalize(mul((float3x3)unity_ObjectToWorld, v.normalOS));
-                o.shadowCoord = mul(_SpotlightProjectionMatrix, mul(_SpotlightViewMatrix, float4(o.worldPos, 1.0f)));
                 return o;
             }
 
@@ -202,10 +148,12 @@ Shader "Custom/RevealingShader"
                 half4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * _Color;
                 texColor.a *= shadowDepth * rangeAttenuation * angleAttenuation * _Lighted;
 
+                if (texColor.a < _AlphaClip)
+                    discard;
+
                 return texColor;
             }
             ENDHLSL
         }
     }
-    FallBack "Diffuse"
 }
