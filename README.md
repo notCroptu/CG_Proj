@@ -157,7 +157,7 @@ Blend SrcAlpha OneMinusSrcAlpha
 ZWrite Off
 ```
 
-- *ZWrite Off* - Para ter acerteza que os materiais que usaram este shader sejam renderizados primeiro, e sem depth buffer, para que não seja escondidos incorretamente (com esplicado na aula ).
+- *ZWrite Off* - Para ter acerteza que os materiais que usaram este shader sejam renderizados primeiro, e sem depth buffer, para que não seja escondidos incorretamente.
 - *Blend SrcAlpha OneMinusSrcAlpha* - Esta parte diz como o material com transparecia, sendo transparente ou não vai misturar as cores com o os objetos atráz dele.
 
 Que foi retirado do video onde iniciei a pesquisa:
@@ -278,23 +278,21 @@ Pesquisei como criar o meu shadow map e encontrei isto:
 
 [Shader access to shadow map - Unity threads](https://discussions.unity.com/t/shader-access-to-shadow-map/421264/5)
 
-Então, antes que podesse acessar o shadow map da minha luz na cena, teria de cria-lo, por *script*. E como detalhado no *link* acima, podia apenas copiar o shadow map existente da minha luz.
+Então, antes que podesse acessar o shadow map da minha luz na cena, teria de ir busca-lo, por *script*. E como detalhado no *link* acima, podia apenas copiar o shadow map existente da minha luz.
 
 Implementei o esquema detalhado no *link* no script da minha *spotlight*, trocando a luz pela minha *spotlight*.
 
-Agora com um *shadow map* que podia usar no meu shader, fui implementa-lo.
+Agora, supostamente, com um *shadow map* que podia usar no meu shader, fui implementa-lo.
 
 Como era uma textura, usei o mesmo método com que tive dificuldade na *_MeinTex*. Mas como esta textura estava a ser guardada a partir do *Rendering* do Unity tive de trocar "*i.uv*" por "*screenUV*", uma posição escalada e adaptada do ponto no ecrã ("*pos*").
 
 Multipliquei o resultado do "*.a*" do *sampler* ao *alpha* da textura final e foi isto que deu:
 
-> **Nota:** O chão agora tem também um material UV, para trabalhar o *shadow map* mais facilmente.
+> **Nota:** O chão agora tem também um material UV, para visualizar o *shadow map* mais facilmente.
 
 ![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
 
-Não o que eu queria de todo... Mas pensei que secalhar tinha sido por ter extraido apenas o *alpha* da textura.
-
-Tentei usar apenas a *shadow mask* em vez de só o seu *alpha* e ficou assim:
+Não era o resultado esperado. Suspeitei que o problema estava no uso exclusivo do *alpha* da textura. Então, tentei usar a *shadow mask* inteira em vez de apenas o alpha, o que gerou o seguinte resultado:
 
 ![Shadows continuam verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v2.png)
 
@@ -306,47 +304,119 @@ Depois de ir ver o que estava a acontecer no *Frame Debugger* do *Unity*, repare
 
 Tentei de várias maneiras *debug* da lógica, mas de nenhuma maneira conseguia fazer o *command buffer* passar, excepto quando manualmente o chamava no update. Porém, como eu no update não estava a ter acerteza do *pass* onde o *command buffer* era chamado, ele nunca estava a capturar a textura no sitio certo, resultando numa textura preta.
 
-Tive de ir pesquisar o porque disto melhor, e demorei algum tempo visto não haver muita documentação de um método errado de fazer as coisas, e contrei este thread:
+Após pesquisas adicionais sobre o motivo disso, descobri que o URP não utiliza *Light Events*, tornando o meu método inválido. Encontrei esta discussão que explicou o problema:
 
 [Access shadow map in URP](https://discussions.unity.com/t/access-shadow-map-in-urp/800211)
 
-O utilizador no thread pergunta porque é que os métodos de ir buscar os shadow maps dele são diferentes em *built-in render system* E *URP*. E assim descobri que URP não utiliza *Light Events* derrotando o propósito todo do que eu estava a fazer.
+O utilizador menciona que os métodos para obter shadow maps são diferentes no *Built-in Render Pipeline* e no *URP*.
 
-Para além disso, no thread o utilizador tem um propósito diferente com os *shadow maps*, resultando que só precisa do *shadow map* da main light, que é muito mais facil de adquirir em *URP*, já que a *Shader Library* de *Lighting* o disponibiliza.
-
-#### *Depth Pass*
-
-Por causa do tópico anterior, decidi apenas usar o depth com ZWrite no shader URP para saber se um vertex está na luz ou não.
+Assim, descobri que o URP não suporta eventos de Camera e Luz como *AfterShadowMap*, que queria utilizar. Além disso, o thread detalha que é mais simples acessar o *shadow map* da luz principal no URP, pois a *Shader Library* de *Lighting* já o disponibiliza.
 
 [Shadow Mapping](https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping)
 
-Primeiro tive de criar uma nova textura onde iria guardar o *shadow map*, num novo *Pass*, porque o que estava a usar já tinha o *depth* desativado, porcausa da transparencia.
+Também achei em alguns thread mençoes que poderiam ser usados *Scriptable Render Features*, onde poderia criar o meu próprio passe para ir buscar o *shadow map* da minha luz.
+Porém, os métodos nos exemplos que encontrei estavam desatualizados para a versão do Unity usada no projeto, e não consegui localizar documentação atualizada para o implementar.
 
-Por fim, as sombras já teem blending porque tenho "*Blend SrcAlpha OneMinusSrcAlpha*" incluido no *shader* pela atenuação do cone.
+#### *Shadow depth* apartir do URP
 
-28/12/2024 - historico para ir buscar os links.
+Por causa do tópico anterior, decidi apenas usar uma mistura do que aprendi sobre as *Shader Libraries*, e também no tópico incial, com o link que remete a várias formas usadas em jogos para criar luzes UV.
 
-<https://discussions.unity.com/t/trying-to-find-the-fields-on-the-light-struct-returned-by-getadditionallight/792693/4>
-<https://docs.unity3d.com/2019.4/Documentation/Manual/shadow-mapping.html>
-<https://www.youtube.com/watch?v=1bm0McKAh9E>
-<https://discussions.unity.com/t/directional-light-view-matrix-computation/888845/2>
-<https://discussions.unity.com/t/can-i-see-the-calculation-of-unity_matrixvp/197526/2>
-<https://discussions.unity.com/t/depth-texture-from-custom-shader-trouble/901260/3>
+O que decidi foi usar estes métodos:
 
-<https://geom.io/bakery/wiki/index.php?title=Point_Light_Attenuation>
+Para ir buscar o *shadow depth* do meu vertex, diretamente ao URP, isolando o depth apenas para a minha *spotlight* com alguma das propriedades globais que usei para calcular manualmente o cone da luz.
 
-<https://discussions.unity.com/t/custom-spotlight-calculation-not-working/945974>
-<https://www.cyanilux.com/tutorials/ultraviolet-lights-invisible-ink/>
+Não podia podia usar o *GetShadowAttenuation* da *Shader Library* do URP, ou acredito que também exista uma chamada *light.attenuation*, porque como a minha textura deve ser emissora, ia ficar estranho ser afetada por todas as luzes no *alpha*.
 
-<https://www.alanzucconi.com/2015/06/10/a-gentle-introduction-to-shaders-in-unity3d/>
-<https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/UnityDeferredLibrary.cginc>
+Então, pesquisando sobre *`MainLightRealtimeShadow()`* (de um dos links do tópico anterior) encontrei esta documentação do Unity:
 
-<https://discussions.unity.com/t/light-distance-in-shader/685998/2>
+[Use shadows in a custom URP shader](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@16.0/manual/use-built-in-shader-methods-shadows.html)
 
-<https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@16.0/manual/use-built-in-shader-methods-shadows.html>
+Comecei por cirar um método novo dentro do shader chamado `SampleDepth()`, onde iterava sobre um index definido por `GetAdditionalLightsCount()` e apenas juntar o *shadow Depth* acumulado e passá-lo para o *alpha*, mas por alguma razão, não parecia estar a afteta-lo, e tive de ir pesquisar porque:
 
-<https://forums.kodeco.com/t/chapter-14-spotlight-shadow-map/60775/2>
+[Inconsistent GetAdditionalLightsCount() - Reddit](https://www.reddit.com/r/Unity3D/comments/t0wxmj/comment/hyeqnrk/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
+
+Por isso, tive de ir ver o número máximo de luzes que podiam afetar o objeto, que era 4, e passei a iterar apenas por esse valor.
+
+Depois disso tive de aplicar uma lógica que visse se a *spotlight* era a mesma, e assumindo que os valores que eu recebo globalmente no shader, podem não ser iguais aos que o URP tem (1*), decidi aplicar um *weigth* para ver que luz era mais parecida á minha.
+Mais tarde pensei também que era melhor ter um minimo de match possivel, para que o *shadow depth* não seja computado erradamente.
+
+> **1*:** Determinei quando estava a usar o *frame debugger*, e previamente tentado clalcular a matris de *ligth view* da minha *spotlight* mas os valores eram sempre ligeiramente diferentes.
+
+Para efetivamente fazer isto tive de perceber que valores e que a light que eu recebia tinha, e para isso tive de ir ver aos shaders da livraria diretamente:
+
+[RealtimeLights.hlsl - Github](https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl)
+
+De todos os valores que podia usar para comparar, escolhi a *direction* porque já estava no meu *shader*.
+
+Assim tinha as shadows implementadas.
+
+### *Depth* para objetos transparentes
+
+Porém! Ao testar um dos meus objetos com apenas o material UV, deparei me com algo inesperado, quando lhe era apontada a luz, o objeto não renderizava a textura:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+Mas quando olhava para a textura com um objeto com um *shader Lit* do URP, ele renderizava apenas na união dos dois:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+O mais estranho era que, de alguma maneira, com a posição da camera que estava a ver o objeto (na camera do janela scene a mesma coisa acontecia), ele renderizava ou não corretamente:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+Testei tambem retirar a logica aplicada das sombras, que mostrou não estar a influenciar isto:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+Então criei um objeto *Lit* de URP com os parametros a fazer o efeito de transparencia que queria para o meu *shader*:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+E segui por ir ao *shader Lit* para ver qual a lógica que estava a usar, e tentar perceber a o que o diferenciava do meu na parte da *RenderQueue*. Isto porque já tinha testado usar um *Shadow Caster* pass para corrigir, mas isso só fez a transparencia ficar preta.
+
+Descobri que ao usar estas mesmas tags:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+E com o *Light Mode* como *Universal Forward*, a transparencia fica corrigida:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+No fim, só precisava de tirar o *shadow casting* do *shader*, porque como ele vai assumir que vai apenas iluminar mensagens escondidas, que não teem peso, ter sempre transparencia não é necessário, e fica estranho.
+O material base do objeto onde este shader será aplicado, com as suas próprias configurações vai tratar das sombras como quiser.
+
+Tive de pesquisar como resolver este problema e encontrei mais uma vez um *thread*:
+
+[Turn off Shadow Casting - Unity threads](https://discussions.unity.com/t/how-to-turn-off-shadow-casting-in-a-surface-shader/652126/5)
+
+Aparente o *fallback* era o que estava a causar o problema, porque ele em si aplica um *Shadow Casting*.
+
+Depois de retira-lo o objeto agora tinha o resultado esperado:
+
+![Shadows aparecem verdes](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLshadows_v1.png)
+
+### *Shadow acne*
+
+As sombras já teem blending porque tenho "*`Blend SrcAlpha OneMinusSrcAlpha`*" incluido no *shader* pela atenuação do cone. Mas apareciam alguns artefactos na zona de atenuação de angulos, os quais ao pesquisar, encontrei que se chamavam *shadow acne*.
+
+Na altura estava a usar o `AdditionalLightRealtimeShadow()` que encontrei da documenção do Unity acima, então decidi usar o resto dos métodos de atenução do URP para recalcular a atenuação das sombras, mas o *Bias* estava a dar resultados inesperados, e o *Shadow fade* estava a cortar as sombras completemente.
+
+Então lembrei me de quando estava a procurar light.direction no git das *Realtime Shadows* do Unity, e aparentemente podia ir buscar a atenuação de shadows total com *light.shadowAttenuation*, muito prático e não interfere com os meus calculos do cone, visto que só usa a dirção e posição da luz.
+
+Após aplicar isso, as sombras já vinham sem acne.
 
 ### Conclusões
 
 ### **Bibliografia**
+
+1. [Fields in the Light Struct from `GetAdditionalLight`](https://discussions.unity.com/t/trying-to-find-the-fields-on-the-light-struct-returned-by-getadditionallight/792693/4)
+2. [Unity Manual: Shadow Mapping](https://docs.unity3d.com/2019.4/Documentation/Manual/shadow-mapping.html)
+3. [Unity Shader Basics - YouTube Tutorial](https://www.youtube.com/watch?v=1bm0McKAh9E)
+4. [Directional Light View Matrix Computation](https://discussions.unity.com/t/directional-light-view-matrix-computation/888845/2)
+5. [Calculation of `unity_MatrixVP`](https://discussions.unity.com/t/can-i-see-the-calculation-of-unity_matrixvp/197526/2)
+6. [Depth Texture from a Custom Shader](https://discussions.unity.com/t/depth-texture-from-custom-shader-trouble/901260/3)
+7. [Point Light Attenuation - Bakery Wiki](https://geom.io/bakery/wiki/index.php?title=Point_Light_Attenuation)
+8. [Unity Built-in Shaders: UnityDeferredLibrary.cginc](https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/UnityDeferredLibrary.cginc)
+9. [Kodeco: Spotlight Shadow Map - Chapter 14](https://forums.kodeco.com/t/chapter-14-spotlight-shadow-map/60775/2)
