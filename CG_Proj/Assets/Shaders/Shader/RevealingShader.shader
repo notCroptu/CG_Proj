@@ -39,7 +39,6 @@ Shader "Custom/RevealingShader"
             #define MAX_ADDITIONAL_LIGHTS 4
 
             uniform float _LightRange;
-            uniform half3 _LightColor;
             uniform float3 _SpotLightDir;
             uniform float _LightStrengthIntensity;
             uniform float _InnerSpotAngle;

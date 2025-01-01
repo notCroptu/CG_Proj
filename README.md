@@ -262,9 +262,9 @@ Além disso, a atenuação total, *range* e angulo comibinados, parecem ter conf
 
 Agora que temos a atenuação, tudo o que nos falta será shadows, para que pontos não visiveis pela luz não sejam visiveis.
 
-Tinha tentado aplicar isto no *shader graph*, mas com acesso limitado só consegui aplicar sombras baseadas nas normais dos pontos.
+Tinha tentado aplicar isto no *shader graph*, mas com acesso limitado só consegui aplicar a sombra do próprio objeto.
 
-Desse modo, como visto anteriror mente, não poderei apenas calcular o *depth para as shadows com o *depth buffer*, por causa de objetos transparentes, mas vou tentar usar *shadow maps*.
+Desse modo, como visto anterirormente, não poderei apenas calcular o *depth* para as shadows com o *depth buffer*, por causa de objetos transparentes, mas vou tentar usar *shadow maps*.
 
 Além disso, de acordo com este *thread*:
 
@@ -274,11 +274,11 @@ A segunda opção seria mais eficiente de qualquer forma.
 
 #### *Shadow Map* por script
 
-Pesquisei como criar o meu shadow map e encontrei isto:
+Pesquisei como criar o meu *shadow map* e encontrei isto:
 
 [Shader access to shadow map - Unity threads](https://discussions.unity.com/t/shader-access-to-shadow-map/421264/5)
 
-Então, antes que podesse acessar o shadow map da minha luz na cena, teria de ir busca-lo, por *script*. E como detalhado no *link* acima, podia apenas copiar o shadow map existente da minha luz.
+Então, antes que podesse acessar o *shadow map* da minha luz na cena, teria de ir busca-lo, por *script*. E como detalhado no *link* acima, podia apenas copiar o *shadow map* existente da minha luz.
 
 Implementei o esquema detalhado no *link* no script da minha *spotlight*, trocando a luz pela minha *spotlight*.
 
@@ -310,7 +310,7 @@ Após pesquisas adicionais sobre o motivo disso, descobri que o URP não utiliza
 
 O utilizador menciona que os métodos para obter shadow maps são diferentes no *Built-in Render Pipeline* e no *URP*.
 
-Assim, descobri que o URP não suporta eventos de Camera e Luz como *AfterShadowMap*, que queria utilizar. Além disso, o thread detalha que é mais simples acessar o *shadow map* da luz principal no URP, pois a *Shader Library* de *Lighting* já o disponibiliza.
+Assim, descobri que o URP não suporta eventos de Camera e Luz como *AfterShadowMap*, que queria utilizar. Além disso, o *thread* detalha que é mais simples acessar o *shadow map* da luz principal no URP, pois a *Shader Library* de *Lighting* já o disponibiliza.
 
 [Shadow Mapping](https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping)
 
@@ -319,11 +319,11 @@ Porém, os métodos nos exemplos que encontrei estavam desatualizados para a ver
 
 #### *Shadow depth* apartir do URP
 
-Por causa do tópico anterior, decidi apenas usar uma mistura do que aprendi sobre as *Shader Libraries*, e também no tópico incial, com o link que remete a várias formas usadas em jogos para criar luzes UV.
+Por causa do tópico anterior, decidi apenas usar uma mistura do que aprendi sobre as *Shader Libraries*, e também no tópico incial, com o *link* que remete a várias formas usadas em jogos para criar luzes UV.
 
 O que decidi foi usar estes métodos:
 
-Para ir buscar o *shadow depth* do meu vertex, diretamente ao URP, isolando o depth apenas para a minha *spotlight* com alguma das propriedades globais que usei para calcular manualmente o cone da luz.
+Para ir buscar o *shadow depth* do meu *vertex*, diretamente ao URP, isolando o *depth* apenas para a minha *spotlight* com alguma das propriedades globais que usei para calcular manualmente o cone da luz.
 
 Não podia podia usar o *GetShadowAttenuation* da *Shader Library* do URP, ou acredito que também exista uma chamada *light.attenuation*, porque como a minha textura deve ser emissora, ia ficar estranho ser afetada por todas as luzes no *alpha*.
 
@@ -331,13 +331,13 @@ Então, pesquisando sobre *`MainLightRealtimeShadow()`* (de um dos links do tóp
 
 [Use shadows in a custom URP shader](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@16.0/manual/use-built-in-shader-methods-shadows.html)
 
-Comecei por cirar um método novo dentro do shader chamado `SampleDepth()`, onde iterava sobre um index definido por `GetAdditionalLightsCount()` e apenas juntar o *shadow Depth* acumulado e passá-lo para o *alpha*, mas por alguma razão, não parecia estar a afteta-lo, e tive de ir pesquisar porque:
+Comecei por cirar um método novo dentro do shader chamado *`SampleDepth()`*, onde iterava sobre um index definido por *`GetAdditionalLightsCount()`* e apenas juntar o *shadow Depth* acumulado e passá-lo para o *alpha*, mas não parecia estar a afteta-lo, e tive de ir pesquisar porque:
 
 [Inconsistent GetAdditionalLightsCount() - Reddit](https://www.reddit.com/r/Unity3D/comments/t0wxmj/comment/hyeqnrk/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
 
 Por isso, tive de ir ver o número máximo de luzes que podiam afetar o objeto, que era 4, e passei a iterar apenas por esse valor.
 
-Depois disso tive de aplicar uma lógica que visse se a *spotlight* era a mesma, e assumindo que os valores que eu recebo globalmente no shader, podem não ser iguais aos que o URP tem (1*), decidi aplicar um *weigth* para ver que luz era mais parecida á minha.
+Depois disso tive de aplicar uma lógica que visse se a *spotlight* era a mesma, e assumindo que os valores que eu recebo globalmente no *shader*, podem não ser iguais aos que o URP tem (1*), decidi aplicar um *weigth* para ver que luz era mais parecida á minha.
 Mais tarde pensei também que era melhor ter um minimo de match possivel, para que o *shadow depth* não seja computado erradamente.
 
 > **1*:** Determinei quando estava a usar o *frame debugger*, e previamente tentado clalcular a matris de *ligth view* da minha *spotlight* mas os valores eram sempre ligeiramente diferentes.
@@ -399,11 +399,11 @@ Depois de retira-lo o objeto agora tinha o resultado esperado:
 
 ### *Shadow acne*
 
-As sombras já teem blending porque tenho "*`Blend SrcAlpha OneMinusSrcAlpha`*" incluido no *shader* pela atenuação do cone. Mas apareciam alguns artefactos na zona de atenuação de angulos, os quais ao pesquisar, encontrei que se chamavam *shadow acne*.
+As sombras já teem blending porque tenho *`Blend SrcAlpha OneMinusSrcAlpha`* incluido no *shader* pela atenuação do cone. Mas apareciam alguns artefactos na zona de atenuação de angulos, os quais ao pesquisar, encontrei que se chamavam *shadow acne*.
 
-Na altura estava a usar o `AdditionalLightRealtimeShadow()` que encontrei da documenção do Unity acima, então decidi usar o resto dos métodos de atenução do URP para recalcular a atenuação das sombras, mas o *Bias* estava a dar resultados inesperados, e o *Shadow fade* estava a cortar as sombras completemente.
+Na altura estava a usar o *`AdditionalLightRealtimeShadow()`* que encontrei da documenção do Unity acima, então decidi usar o resto dos métodos de atenução do URP para recalcular a atenuação das sombras, mas o *Bias* estava a dar resultados inesperados, e o *Shadow fade* estava a cortar as sombras completemente.
 
-Então lembrei me de quando estava a procurar light.direction no git das *Realtime Shadows* do Unity, e aparentemente podia ir buscar a atenuação de shadows total com *light.shadowAttenuation*, muito prático e não interfere com os meus calculos do cone, visto que só usa a dirção e posição da luz.
+Então lembrei me de quando estava a procurar *`light.direction`* no git das *Realtime Shadows* do Unity, e aparentemente podia ir buscar a atenuação de sombra total com *light.shadowAttenuation*, muito prático e não interfere com os meus calculos do cone, visto que só usa a dirção e posição da luz.
 
 Após aplicar isso, as sombras já vinham sem acne.
 
