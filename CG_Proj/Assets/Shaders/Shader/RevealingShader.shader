@@ -5,6 +5,7 @@ Shader "Custom/RevealingShader"
         _MainTex ("Texture to be Revealed", 2D) = "white" {}
         _Color ("Color", Color) = (1,1,1,1)
         _AlphaClip ("Alpha Clip", Range(0, 1)) = 0.01
+        _Emission ("Emission", Range(0, 100)) = 4.0
     }
     SubShader
     {
@@ -50,6 +51,7 @@ Shader "Custom/RevealingShader"
             SAMPLER(sampler_MainTex);
             half4 _Color;
             float _AlphaClip;
+            half _Emission;
 
             struct VertexInput
             {
@@ -97,8 +99,9 @@ Shader "Custom/RevealingShader"
             half SampleDepth(float3 worldPos, float3 normal)
             {
                 half shadowDepth = 0.0f; // Accumulate weighted shadow depth
+                half reverseShadowDepth = 0.0f;
             
-                float bestMatchWeight = 0.75f; // Keep track of the strongest matching weight, and give it a minimum
+                float bestMatchWeight = 0.0f; // Keep track of the strongest matching weight, and give it a minimum
             
                 for (int i = 0; i < 4; i++)
                 {
@@ -113,7 +116,7 @@ Shader "Custom/RevealingShader"
                     if (matchWeight > bestMatchWeight)
                     {
                         bestMatchWeight = matchWeight;
-                        shadowDepth = light.shadowAttenuation;
+                        shadowDepth = AdditionalLightRealtimeShadow(i, worldPos);
                     }
                 }
 
@@ -139,7 +142,7 @@ Shader "Custom/RevealingShader"
                 float3 toLight = normalize(_SpotLightPos - i.worldPos);
 
                 float normalizedDist = NormalizedDistance(i.worldPos);
-                float rangeAttenuation = saturate(InverseSquareFalloff(normalizedDist) * SmoothRange(normalizedDist));
+                float rangeAttenuation =  (InverseSquareFalloff(normalizedDist) * SmoothRange(normalizedDist));
                 float angleAttenuation = AngleAttenuation(toLight);
 
                 half shadowDepth = SampleDepth(i.worldPos, i.normalWS);
@@ -147,8 +150,9 @@ Shader "Custom/RevealingShader"
                 half4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * _Color;
                 texColor.a *= shadowDepth * rangeAttenuation * angleAttenuation * _Lighted;
 
-                if (texColor.a < _AlphaClip)
-                    discard;
+                texColor.a = saturate(texColor.a);
+
+                texColor.rgb *= pow( _Emission, texColor.a) -1;
 
                 return texColor;
             }

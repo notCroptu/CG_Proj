@@ -402,17 +402,47 @@ Depois de retira-lo o objeto agora tinha o resultado esperado:
 
 ![Shadows Caster desativado](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLtrans_v9.png)
 
-### *Shadow acne*
+### *Glow*
 
-As sombras já teem blending porque tenho *`Blend SrcAlpha OneMinusSrcAlpha`* incluido no *shader* pela atenuação do cone. Mas apareciam alguns artefactos na zona de atenuação de angulos, os quais ao pesquisar, encontrei que se chamavam *shadow acne*.
+Para o *glow*, comecei por ver este video:
 
-Na altura estava a usar o *`AdditionalLightRealtimeShadow()`* que encontrei da documenção do Unity acima, então decidi usar o resto dos métodos de atenução do URP para recalcular a atenuação das sombras, mas o *Bias* estava a dar resultados inesperados, e o *Shadow fade* estava a cortar as sombras completemente.
+[![HOW TO MAKE GLOW (BLOOM) EFFECT IN UNITY URP](https://www.youtube.com/watch?v=K4_qCN4O0pQ)]
 
-Então lembrei me de quando estava a procurar *`light.direction`* no git das *Realtime Shadows* do Unity, e aparentemente podia ir buscar a atenuação de sombra total com *light.shadowAttenuation*, muito prático e não interfere com os meus calculos do cone, visto que só usa a dirção e posição da luz.
+E adicionei um *post processing* com *bloom* á cena.
 
-Após aplicar isso, as sombras já vinham sem acne.
+E para adicionar um emissão ao *shader*, encontrei este *thread*:
+
+[How to change HDR color’s intensity via shader - Unity threads](https://discussions.unity.com/t/how-to-change-hdr-colors-intensity-via-shader/701927/7)
+
+Onde percebi que a emissão é apenas um extra aplicado á cor base.
+
+O que suspeitei que aconteçe-se, é que ao adicionarmos a emissão a uma cor para passarmos no *frag*, a cor inicial passa a ser branca, e a cor da emissão passa a sera cor verdadeira do material (1*).
+E os valores em excesso do HDR são usados pelo pos processing para colocar o *bloom* no *Volume*.
+
+> **1*:** Acho que vai ser um pouco como eular angles que estão sempre no range de 360.
+
+Então ter ambas uma cor e cor de emissão com HDR pareceu-me desnecessário, e decidi ter apenas um valor de intensidade de emissão que será multiplicado pela cor da textura final.
+
+Porém, a atenuação do *range*, como estava sobre uma grande area, parecia ter ficado muito afetada pela emissão, em vez de ao contrário.
+Então fui a uma calculadora gráfica testar algumas formulas para ver qual se apróximava ao resultado que eu queria de emissão usando a minha atenuação:
+
+> **Nota:** 0.9 representa a texColor.rgb, x o texColor.a, e outros números representam a intensidade da emissão.
+
+![Calculadora grafica](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLglow_v1.png)
+
+Ao aplicar a fórmula escolhida a cima (linha vermelha) este foi o resultado:
+
+![UV shader com glow](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/Unity_kEciWs1hD7.gif)
+
+### Optimizações do shader
+
+<https://docs.unity3d.com/Manual/SL-ShaderPerformance.html>
 
 ### Conclusões
+
+### Agradecimentos
+
+1. Afonso Cunha
 
 ### **Bibliografia**
 
@@ -425,3 +455,4 @@ Após aplicar isso, as sombras já vinham sem acne.
 7. [Point Light Attenuation - Bakery Wiki](https://geom.io/bakery/wiki/index.php?title=Point_Light_Attenuation)
 8. [Unity Built-in Shaders: UnityDeferredLibrary.cginc](https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/UnityDeferredLibrary.cginc)
 9. [Kodeco: Spotlight Shadow Map - Chapter 14](https://forums.kodeco.com/t/chapter-14-spotlight-shadow-map/60775/2)
+10. [URP Shader Viewer](https://xibanya.github.io/URPShaderViewer/Library/URP/ShaderLibrary/Lighting.html#LightingPhysicallyBased)
