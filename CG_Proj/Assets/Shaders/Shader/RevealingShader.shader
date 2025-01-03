@@ -3,7 +3,6 @@ Shader "Custom/RevealingShader"
     Properties
     {
         _MainTex ("Texture to be Revealed", 2D) = "white" {}
-        _Green ("Green - Phosphorescence", Range(0, 1)) = 1
         _Blue ("Blue - Fluorescence", Range(0, 1)) = 1
         _AlphaClip ("Alpha Clip", Range(0, 1)) = 0.01
         _Emission ("Emission", Range(0, 100)) = 4.0
@@ -45,10 +44,10 @@ Shader "Custom/RevealingShader"
             uniform float _OuterSpotAngle;
             uniform float _Lighted;
             uniform float3 _SpotLightPos;
+            uniform float4 _SpotLightColor;
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
-            half _Green;
             half _Blue;
             half _AlphaClip;
             half _Emission;
@@ -124,7 +123,7 @@ Shader "Custom/RevealingShader"
 
             half4 GetColor()
             {
-                return half4(0, _Green, _Blue, 1);
+                return half4(0, 1, _Blue, 1);
             }
 
             struct VertexInput
@@ -194,7 +193,7 @@ Shader "Custom/RevealingShader"
 
                 texColor.a = saturate(texColor.a);
 
-                texColor.rgb *= pow( _Emission, texColor.a) -1;
+                texColor.rgb *= color * (pow( _Emission, texColor.a) -1);
 
                 return texColor;
             }

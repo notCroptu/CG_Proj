@@ -23,6 +23,11 @@ public class UVLightOld : MonoBehaviour
         Shader.SetGlobalFloat("_LightRange", _uvLight.range);
         Shader.SetGlobalFloat("_InnerSpotAngle", Mathf.Cos(0.5f * Mathf.Deg2Rad * _uvLight.innerSpotAngle));
         Shader.SetGlobalFloat("_OuterSpotAngle", Mathf.Cos(0.5f * Mathf.Deg2Rad * _uvLight.spotAngle));
+        Shader.SetGlobalColor("_SpotLightColor", _uvLight.color);
+
+        // Here to test the old shader graph
+        Shader.SetGlobalFloat("_InnerSpotAngleOld", _uvLight.innerSpotAngle);
+        Shader.SetGlobalFloat("_OuterSpotAngleOld", _uvLight.spotAngle);
 
         _uvSpotLightObject.SetActive(true);
         Shader.SetGlobalFloat(_lightedID, 1);
