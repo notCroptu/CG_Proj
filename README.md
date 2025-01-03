@@ -8,7 +8,11 @@
 
 ### Link para repositório
 
-https://github.com/notCroptu/CG_Proj
+<https://github.com/notCroptu/CG_Proj>
+
+### Link para build
+
+<https://drive.google.com/drive/folders/19IU-hPcH67zsdW4xye1Fjc5ZSEoPtEzZ?usp=sharing>
 
 ## **Relatório**
 
@@ -406,7 +410,7 @@ Depois de retira-lo o objeto agora tinha o resultado esperado:
 
 Para o *glow*, comecei por ver este video:
 
-[![HOW TO MAKE GLOW (BLOOM) EFFECT IN UNITY URP](https://www.youtube.com/watch?v=K4_qCN4O0pQ)]
+[HOW TO MAKE GLOW (BLOOM) EFFECT IN UNITY URP](https://www.youtube.com/watch?v=K4_qCN4O0pQ)
 
 E adicionei um *post processing* com *bloom* á cena.
 
