@@ -71,7 +71,7 @@ Shader "Custom/RevealingShader"
                 float2 uv : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
                 float3 normalWS : TEXCOORD2;
-                float2 screenPos : TEXCOORD3;
+                float4 screenPos : TEXCOORD3;
             };
 
             // Calculate normalized distance from the light position
@@ -138,16 +138,11 @@ Shader "Custom/RevealingShader"
 
             half CalculateDelay(half4 color)
             {
-                // Calculate the absolute difference between green and blue.
                 half diff = abs(color.g - color.b);
+                half rate = 1.0 - diff;
+                rate = clamp(rate, 0.0, 0.999);
             
-                // Normalize this difference to be between 0 and 1.
-                half rate = 1.0 - diff;  // Subtract the difference from 1 to make it 1 when they're the same.
-            
-                // Clamp the result between 0 and 1.
-                rate = clamp(rate, 0.0, 1.0);
-            
-                return 0.99;
+                return rate;
             }
 
             half4 GetColor()
@@ -184,29 +179,30 @@ Shader "Custom/RevealingShader"
                 half4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * color;
                 texColor.a *= shadowDepth * rangeAttenuation * angleAttenuation;
 
+                // Unused phosphorescence and fluorescence calculations
 
-                float2 normalizedScreenPos = i.screenPos.xy * 0.5 + 0.5;
-                float2 aspectCorrectedUV = float2(normalizedScreenPos.x, normalizedScreenPos.y * _AlphaDelayHeight / _AlphaDelayWidth);
-
-                float2 adjustedUV = i.screenPos.xy * 0.5 + 0.5;
+                /*float2 adjustedUV = i.screenPos.xy / i.screenPos.x * 0.5 + 0.5;
                 adjustedUV.x *= _AlphaDelayWidth / _ScreenParams.x;
                 adjustedUV.y *= _AlphaDelayHeight / _ScreenParams.y;
 
                 half4 delayedAlpha = SAMPLE_TEXTURE2D(_AlphaDelay, sampler_AlphaDelay, adjustedUV);
 
                 half rate = CalculateDelay(color);
-                // half illuminance = 0.587 * delayedAlpha.g + 0.114 * delayedAlpha.b;
-                // half scaled = 10 / unity_DeltaTime;
-                // half newRate = 100000000000000.0 / 0.016 * (exp(delayedAlpha.a * rate) -1.0);
-                // texColor.a += newRate;
+                // half scaled = 10 / unity_DeltaTime; // It doesn't work as expected but gives a cool flickering effect.
+                half newRate = 100000000000000.0 / 0.016 * (exp(delayedAlpha.a * rate) -1.0);
+                texColor.a += newRate;
 
                 // texColor.r += 1 - delayedAlpha.a;
 
-                half newAlpha = (delayedAlpha.a * rate) + (texColor.a * (1.0 - rate));
+                // texColor.a = delayedAlpha.a;
+
+                // Delayed alpha screen position debug
+                if (delayedAlpha.a > 0.2)
+                    texColor = half4(1,0,0,1);*/
 
                 texColor.a = saturate(texColor.a);
 
-                // texColor.rgb *= pow( _Emission, texColor.a) -1;
+                texColor.rgb *= pow( _Emission, texColor.a) -1;
 
                 return texColor;
             }

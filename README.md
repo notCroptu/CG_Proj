@@ -452,53 +452,74 @@ Isto está ligado à diferença de emissão de energia e não diretamente à fre
 
 Na fluorescência, o atraso na emissão é tão curto que a luz emitida tem um comprimento de onda mais curto, como o azul.
 Já em materiais fosforescentes, o processo de libertação de energia pode ser muito mais demorado, resultando em comprimentos de onda mais longos, como o verde.
-Estas mudanças da onda de comprimento da frequencia são chamadas Strokes Shift.
+Estas mudanças da onda de comprimento da frequencia são chamadas *Strokes Shift*.
 
 [Phosphorescence vs Fluorescence](https://www.youtube.com/watch?v=2NO-qkL0ZPc)
 
 Por isso agora gostava de aplicar isto um bocado ao contrario no meu shader, onde o delay é baseado na cor.
 
-A partir do conhecimento que ganhei sobre command buffers no topico dos Shadow Maps, sabia que não poderia guardar a informação do alpha que precisaria para saber o delay a aplicar diretamente no shader.
+A partir do conhecimento que ganhei sobre *command buffers* no topico dos *Shadow Maps*, sabia que não poderia guardar a informação do alpha que precisaria para saber o delay a aplicar diretamente no shader.
 Para isto iria precisar de criar um script, que iria colocar em cada objeto com um material uv, para me guardar uma textura com o valor do alpha da minha textura.
 
 Aqui decidi tambem que ia passar a adicionar o material no Mesh Renderer a partir deste mesmo script.
 Porque visto que o material vai passar a ter uma textura conjunta a afetar o alpha, preciso que este não seja um shared material, de objeto para objeto.
 Isto não era um problema antes porque estavamos a calcular o alpha por vertex, dentro do shader, mas agora, se tivermos dois command buffers a escrever para o mesmo material, não vai funcionar como queremos.
 
-Isto foi algo que observei na minha primeira iteração do shader graph, onde queria usar o mesmo material base para todos os objetos, e modifica-lo por script.
+Isto foi algo que observei na minha primeira iteração do *shader graph*, onde queria usar o mesmo material base para todos os objetos, e modifica-lo por script.
 
 Não é muito prático, mas pelo que entendi aqui:
 
 [Is a phosphorescence shader possible? - Unity threads](https://discussions.unity.com/t/is-a-phosphorescence-shader-possible/551545/3)
 
-Não existe outra forma, não com buffers ou a guardar o valor de alpha no shader.
+Não existe outra forma, não com *buffers* ou a guardar o valor de *alpha* no *shader*.
 
-#### Aplicação
+#### Tentativa de aplicação
 
-Comecei por criar o script, onde criei um command buffer com uma textura nova, que depois passaria para o material.
+Comecei por criar o script, onde criei um *command buffer* com uma textura nova, que depois passaria para o material.
 
-Como só precisava do alpha do objeto globalmente, e não do depth em relação á minha spotlight especifica como para o shadow map, tive apenas de ir verificar em que metodo quereria chamar o meu command buffer na ordem do Unity:
+Como só precisava do alpha do objeto globalmente, e não do depth em relação à minha *spotlight* específica, como acontece para o *shadow map*, tive apenas de verificar em que método queria chamar o meu *command buffer* na ordem de execução do Unity:
 
 [Execution Order Unity](https://docs.unity3d.com/6000.0/Documentation/Manual/execution-order.html#:~:text=OnPostRender%20%3A%20Called%20after%20a%20camera%20finishes%20rendering%20the%20scene.)
 
-Usei este site como referencia para usar o command buffer em objetos especificos
+Usei este site como referência para usar o *command buffer* em objetos específicos:
 
-https://lindenreidblog.com/2018/09/13/using-command-buffers-in-unity-selective-bloom/
+[Using Command Buffers in Unity - Selective Bloom](https://lindenreidblog.com/2018/09/13/using-command-buffers-in-unity-selective-bloom/)
 
-Inicialmente pensei que esta textura, ao usar o DrawRenderer() do command buffer, iria cirar uma textura uv mapped, mas quando a vi no frame debugger percebi que era mais um render.
+Inicialmente, pensei que esta textura, ao usar o `DrawRenderer()` do *command buffer*, iria criar uma textura *UV mapped*, mas quando a vi no *frame debugger*, percebi que era mais um render.
 
-Mas mesmo assim estava a retirar a cor do objeto, só tinha de o aplicar em camera view, em vez de uv.
+Mas, mesmo assim, estava a retirar a cor do objeto. Só tinha de a aplicar em *camera view*, em vez de *UV*.
 
-https://discussions.unity.com/t/urp-shader-screen-space/763351
+Porém, ao tentar aplicá-la em *screen space*, tive algumas dificuldades. Usei este *thread* como referência inicialmente:
 
-https://docs.unity3d.com/6000.0/Documentation/Manual/execution-order.html#:~:text=OnPostRender%20%3A%20Called%20after%20a%20camera%20finishes%20rendering%20the%20scene.
-https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.CommandBuffer.html
+[URP Shader Screen Space - Unity Threads](https://discussions.unity.com/t/urp-shader-screen-space/763351)
 
-Inicialmente ao tentar aplicar
+Mas não consegui projetar a posição em *screen space* corretamente. Também tentei usar a escala da *Render Texture*, porque reparei que, quando era criada, tinha dimensões diferentes na tela, de onde estava a ir buscar a largura e altura.
 
-tempo dependente de cor que esta dependente de frequencia que esta deependente de system
+De qualquer maneira, avancei para calcular o *fade* em si e pensei que, talvez, a melhor maneira de o fazer fosse, como eu supostamente teria o alpha guardado que iria projetar no meu objeto, precisava apenas de calcular quanto e que queria tirar de alpha em cada iteração, em vez de ter de guardar quanto tempo passou desde que começou o *fade*, o que implicava que o *fade* fosse para o objeto todo.
+
+Então, tendo em conta que um *Update* do Unity leva mais ou menos 16 milissegundos, tentei dividir isso pelo valor máximo em segundos que queria que o *delay* pudesse ter. No mesmo pensamento, também descobri que o *Built-In Render Pipeline* tem algumas variáveis globais, incluindo uma para o *delta time*, que ao usar, deu um efeito engraçado de *flickering*. Não o que eu queria, mas foi bom saber.
+
+Baseado neste gráfico, onde mais uma vez estive a testar fórmulas:
+
+![Calculadora gráfica](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/HLSLrate_v1.png)
+
+O meu objetivo era ter uma interpolação exponencial entre quando `delayedAlpha.a` é 0 e 1, dependente de quanto tempo eu queria que demorasse, e dependente de *rate* calculado pela cor.
+
+Para calcular o *rate* pela cor, tive de achar uma maneira de que fosse 0 quando `color.b = 1` e `color.g = 0`, e fosse 1 quando `color.b = 0` e `color.g = 1`. Também precisava que, quando ambos fossem 0.5, o *rate* fosse o mesmo, e esta foi a fórmula que usei:
+
+$$1 - | \text{green} - \text{blue} |$$
+
+O que estava a assumir que iria acontecer, com a posição na tela aplicada corretamente, é que o alpha que foi *buffered* pelo *CommandBuffer* ia ser escalado só um pouco de acordo com a cor, e então, quando era adicionado ao alpha total da cor, estaria a influenciar o seu próprio valor na próxima *frame*.
+
+E, teoricamente, isso criaria um efeito *faded*.
+
+Porém, não consegui testar, devido à dificuldade em usar *screen space* na *Render Texture*.
 
 ### Optimizações do shader
+
+Por fim, tive de fazer algumas optimizações ao shader, porque reparei que estava a fazer muitos calculos desnecessários que podiam estar a ser feito no vert.
+
+
 
 <https://docs.unity3d.com/Manual/SL-ShaderPerformance.html>
 
@@ -520,3 +541,4 @@ tempo dependente de cor que esta dependente de frequencia que esta deependente d
 8. [Unity Built-in Shaders: UnityDeferredLibrary.cginc](https://github.com/TwoTailsGames/Unity-Built-in-Shaders/blob/master/CGIncludes/UnityDeferredLibrary.cginc)
 9. [Kodeco: Spotlight Shadow Map - Chapter 14](https://forums.kodeco.com/t/chapter-14-spotlight-shadow-map/60775/2)
 10. [URP Shader Viewer](https://xibanya.github.io/URPShaderViewer/Library/URP/ShaderLibrary/Lighting.html#LightingPhysicallyBased)
+11. [Unity CommandBuffer](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.CommandBuffer.html)
