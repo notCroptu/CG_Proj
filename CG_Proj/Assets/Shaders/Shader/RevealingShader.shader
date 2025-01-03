@@ -82,6 +82,7 @@ Shader "Custom/RevealingShader"
             {
                 half shadowDepth = 0.0f; // The final shadowDepth for the vertex.
                 float bestMatchWeight = 0.5f; // Keep track of the strongest matching weight, and give it a minimum
+                half bias = 0.005;
             
                 for (int i = 0; i < MAX_ADDITIONAL_LIGHTS; i++)
                 {
@@ -100,7 +101,7 @@ Shader "Custom/RevealingShader"
                     }
                 }
 
-                shadowDepth = saturate(shadowDepth);
+                shadowDepth = saturate(shadowDepth - bias);
             
                 return shadowDepth;
             }
@@ -146,7 +147,9 @@ Shader "Custom/RevealingShader"
             VertexOutput vert(VertexInput v)
             {
                 VertexOutput o;
+
                 o.pos = TransformObjectToHClip(v.vertex.xyz);
+                
                 o.uv = v.uv;
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
 
