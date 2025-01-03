@@ -3,10 +3,10 @@ using UnityEngine.Rendering;
 
 public class UVMaterial : MonoBehaviour
 {
-    [SerializeField] private Material _uvMaterial;
+    [SerializeField] public Material _uvMaterial;
     [SerializeField] private Renderer _rendererToApplyUV;
     private CommandBuffer _commandBuffer;
-    [SerializeField] private RenderTexture _alphaTexture;
+    [SerializeField] public RenderTexture _alphaTexture;
     private int _alphaDelay;
 
     private void Start()
@@ -37,8 +37,6 @@ public class UVMaterial : MonoBehaviour
 
     private void Update()
     {
-        Matrix4x4 viewProjMatrix = Camera.main.projectionMatrix * Camera.main.worldToCameraMatrix;
-        // Pass the matrix and texture to the shader
         _uvMaterial.SetFloat("_AlphaDelayWidth", _alphaTexture.width);
         _uvMaterial.SetFloat("_AlphaDelayHeight", _alphaTexture.height);
 

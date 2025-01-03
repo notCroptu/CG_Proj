@@ -24,13 +24,9 @@ public class UVLightOld : MonoBehaviour
         Shader.SetGlobalFloat("_InnerSpotAngle", Mathf.Cos(0.5f * Mathf.Deg2Rad * _uvLight.innerSpotAngle));
         Shader.SetGlobalFloat("_OuterSpotAngle", Mathf.Cos(0.5f * Mathf.Deg2Rad * _uvLight.spotAngle));
 
-        // Update the old shader graph values still, so that we can still have a comparison
-        Shader.SetGlobalFloat("_InnerSpotAngleOld", _uvLight.innerSpotAngle);
-        Shader.SetGlobalFloat("_OuterSpotAngleOld", _uvLight.spotAngle);
-
-        _uvSpotLightObject.SetActive(false);
-        Shader.SetGlobalFloat(_lightedID, 0);
-        isOn = false;
+        _uvSpotLightObject.SetActive(true);
+        Shader.SetGlobalFloat(_lightedID, 1);
+        isOn = true;
     }
 
     private void OnEnable()

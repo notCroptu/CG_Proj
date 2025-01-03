@@ -497,7 +497,8 @@ Mas não consegui projetar a posição em *screen space* corretamente. Também t
 
 De qualquer maneira, avancei para calcular o *fade* em si e pensei que, talvez, a melhor maneira de o fazer fosse, como eu supostamente teria o alpha guardado que iria projetar no meu objeto, precisava apenas de calcular quanto e que queria tirar de alpha em cada iteração, em vez de ter de guardar quanto tempo passou desde que começou o *fade*, o que implicava que o *fade* fosse para o objeto todo.
 
-Então, tendo em conta que um *Update* do Unity leva mais ou menos 16 milissegundos, tentei dividir isso pelo valor máximo em segundos que queria que o *delay* pudesse ter. No mesmo pensamento, também descobri que o *Built-In Render Pipeline* tem algumas variáveis globais, incluindo uma para o *delta time*, que ao usar, deu um efeito engraçado de *flickering*. Não o que eu queria, mas foi bom saber.
+Então, tendo em conta que um *Update* do Unity leva mais ou menos 16 milissegundos, tentei dividir isso pelo valor máximo em segundos que queria que o *delay* pudesse ter.
+No mesmo pensamento, também descobri que o *Built-In Render Pipeline* tem algumas variáveis globais, incluindo uma para o *delta time*, que ao usar, deu um efeito engraçado de *flickering*. Não o que eu queria, mas foi bom saber.
 
 Baseado neste gráfico, onde mais uma vez estive a testar fórmulas:
 
@@ -515,19 +516,16 @@ E, teoricamente, isso criaria um efeito *faded*.
 
 Porém, não consegui testar, devido à dificuldade em usar *screen space* na *Render Texture*.
 
-### Optimizações do shader
+### Optimizações
 
-Por fim, tive de fazer algumas optimizações ao shader, porque reparei que estava a fazer muitos calculos desnecessários que podiam estar a ser feito no vert.
+Por fim, Tentei fazer algumas optimizações ao shader.
 
+Simplifiquei algumas lógicas nos métodos relacionados ao cone. Reduzi cálculos desnecessários, removi variáveis e parâmetros que não estavam a ser usados.
+Converti alguns `float` para `half`. Mas deixei a lógica da fluorescencia comentada.
 
-
-<https://docs.unity3d.com/Manual/SL-ShaderPerformance.html>
+Também experimentei transferir alguns cálculos personalizados para o vertex shader, com o objetivo de melhorar o desempenho. No entanto, isso resultou em comportamentos inesperados, então mantive esses cálculos no fragment shader por enquanto.
 
 ### Conclusões
-
-### Agradecimentos
-
-1. Afonso Cunha
 
 ### **Bibliografia**
 
@@ -542,3 +540,4 @@ Por fim, tive de fazer algumas optimizações ao shader, porque reparei que esta
 9. [Kodeco: Spotlight Shadow Map - Chapter 14](https://forums.kodeco.com/t/chapter-14-spotlight-shadow-map/60775/2)
 10. [URP Shader Viewer](https://xibanya.github.io/URPShaderViewer/Library/URP/ShaderLibrary/Lighting.html#LightingPhysicallyBased)
 11. [Unity CommandBuffer](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.CommandBuffer.html)
+12. [Unity Shader Performance](https://docs.unity3d.com/Manual/SL-ShaderPerformance.html)

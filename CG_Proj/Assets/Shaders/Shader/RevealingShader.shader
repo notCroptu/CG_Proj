@@ -35,8 +35,6 @@ Shader "Custom/RevealingShader"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-
-            #pragma multi_compile_fog
             
             #define MAX_ADDITIONAL_LIGHTS 4
 
@@ -50,35 +48,15 @@ Shader "Custom/RevealingShader"
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
-            TEXTURE2D(_AlphaDelay);
-            SAMPLER(sampler_AlphaDelay);
             half _Green;
             half _Blue;
-            float _AlphaClip;
+            half _AlphaClip;
             half _Emission;
-
-
-            struct VertexInput
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-                float3 normalOS : NORMAL;
-            };
-
-            struct VertexOutput
-            {
-                float4 pos : SV_POSITION;
-                float2 uv : TEXCOORD0;
-                float3 worldPos : TEXCOORD1;
-                float3 normalWS : TEXCOORD2;
-                float4 screenPos : TEXCOORD3;
-            };
 
             // Calculate normalized distance from the light position
             float NormalizedDistance(float3 worldPos)
             {
-                float dist = distance(worldPos, _SpotLightPos);
-                return dist / _LightRange;
+                return distance(worldPos, _SpotLightPos) / _LightRange;
             }
             
             // Inverse square falloff based on distance
@@ -94,22 +72,19 @@ Shader "Custom/RevealingShader"
             }
 
             // Calculate angle-based attenuation for the spotlight
-            float AngleAttenuation(float3 lightDir, float outer, float inner)
+            float AngleAttenuation(float3 lightDir)
             {
                 lightDir = normalize(lightDir);
-                float angle = dot(lightDir, normalize(_SpotLightDir));
-                return smoothstep(outer, inner, angle);
+                return smoothstep(_OuterSpotAngle, _InnerSpotAngle, dot(lightDir, normalize(_SpotLightDir)));
             }
             
             // Sample depth from URP Additional Lights
-            half SampleDepth(float3 worldPos, float3 normal)
+            half SampleDepth(float3 worldPos)
             {
-                half shadowDepth = 0.0f; // Accumulate weighted shadow depth
-                half reverseShadowDepth = 0.0f;
+                half shadowDepth = 0.0f; // The final shadowDepth for the vertex.
+                float bestMatchWeight = 0.5f; // Keep track of the strongest matching weight, and give it a minimum
             
-                float bestMatchWeight = 0.0f; // Keep track of the strongest matching weight, and give it a minimum
-            
-                for (int i = 0; i < 4; i++)
+                for (int i = 0; i < MAX_ADDITIONAL_LIGHTS; i++)
                 {
                     // Fetch light properties
                     Light light = GetAdditionalPerObjectLight(i, worldPos);
@@ -131,10 +106,11 @@ Shader "Custom/RevealingShader"
                 return shadowDepth;
             }
 
-
-            float4x4 _MainCameraViewProj;
+            /*
             float _AlphaDelayWidth;
             float _AlphaDelayHeight;
+            TEXTURE2D(_AlphaDelay);
+            SAMPLER(sampler_AlphaDelay);
 
             half CalculateDelay(half4 color)
             {
@@ -144,11 +120,28 @@ Shader "Custom/RevealingShader"
             
                 return rate;
             }
+            */
 
             half4 GetColor()
             {
                 return half4(0, _Green, _Blue, 1);
             }
+
+            struct VertexInput
+            {
+                float4 vertex : POSITION;
+                float2 uv : TEXCOORD0;
+                float3 normalOS : NORMAL;
+            };
+
+            struct VertexOutput
+            {
+                float4 pos : SV_POSITION;
+                float2 uv : TEXCOORD0;
+                float3 worldPos : TEXCOORD1;
+                
+                // float4 screenPos : TEXCOORD3;
+            };
 
             // Vertex shader: transforms position and calculates shadow coordinates
             VertexOutput vert(VertexInput v)
@@ -157,9 +150,8 @@ Shader "Custom/RevealingShader"
                 o.pos = TransformObjectToHClip(v.vertex.xyz);
                 o.uv = v.uv;
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
-                o.normalWS = normalize(mul((float3x3)unity_ObjectToWorld, v.normalOS));
 
-                o.screenPos = ComputeScreenPos(o.pos);
+                // o.screenPos = ComputeScreenPos(o.pos);
                 return o;
             }
 
@@ -168,16 +160,16 @@ Shader "Custom/RevealingShader"
             {
                 float3 toLight = normalize(_SpotLightPos - i.worldPos);
 
-                float normalizedDist = NormalizedDistance(i.worldPos);
-                float rangeAttenuation =  (InverseSquareFalloff(normalizedDist) * SmoothRange(normalizedDist));
-                float angleAttenuation = AngleAttenuation(toLight, _OuterSpotAngle, _InnerSpotAngle);
+                half normalizedDist = NormalizedDistance(i.worldPos);
+                half rangeAttenuation =  (InverseSquareFalloff(normalizedDist) * SmoothRange(normalizedDist));
+                half angleAttenuation = AngleAttenuation(toLight);
 
-                half shadowDepth = SampleDepth(i.worldPos, i.normalWS);
+                half shadowDepth = SampleDepth(i.worldPos);
 
                 half4 color = GetColor();
 
-                half4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * color;
-                texColor.a *= shadowDepth * rangeAttenuation * angleAttenuation;
+                float4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * color;
+                texColor.a *= shadowDepth * rangeAttenuation * angleAttenuation * _Lighted;
 
                 // Unused phosphorescence and fluorescence calculations
 
@@ -185,7 +177,7 @@ Shader "Custom/RevealingShader"
                 adjustedUV.x *= _AlphaDelayWidth / _ScreenParams.x;
                 adjustedUV.y *= _AlphaDelayHeight / _ScreenParams.y;
 
-                half4 delayedAlpha = SAMPLE_TEXTURE2D(_AlphaDelay, sampler_AlphaDelay, adjustedUV);
+                float4 delayedAlpha = SAMPLE_TEXTURE2D(_AlphaDelay, sampler_AlphaDelay, adjustedUV);
 
                 half rate = CalculateDelay(color);
                 // half scaled = 10 / unity_DeltaTime; // It doesn't work as expected but gives a cool flickering effect.
