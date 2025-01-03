@@ -434,6 +434,70 @@ Ao aplicar a fórmula escolhida a cima (linha vermelha) este foi o resultado:
 
 ![UV shader com glow](https://github.com/notCroptu/CG_Proj/blob/main/EvidenceImages/Unity_kEciWs1hD7.gif)
 
+### *Fluorescence* e *Phosphorescence*
+
+Quero testar também implementar um efeito de atraso, como vemos em materiais que reagem à luz UV.
+
+Materiais fosforescentes, como os usados em sinais de saída ou estrelas de teto, continuam a emitir luz após a luz UV ser desligada, porque liberam energia armazenada lentamente.
+Mas materiais fluorescentes emitem luz apenas enquanto estão expostos à UV.
+Essa diferença está relacionada com como os elétrons são excitados e como a energia é libertada
+(Alguns materiais fluorescentes possuem um efeito chamado "delay fluorescente", que causa um pequeno atraso na emissão após a excitação, mas não tão significatico quanto na fosforecencia).
+
+[Fluorescence and Phosphorescence](https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Supplemental_Modules_(Physical_and_Theoretical_Chemistry)/Spectroscopy/Electronic_Spectroscopy/Fluorescence_and_Phosphorescence)
+
+Além disso, muitas vezes materiais fluorescentes parecem mais azuis, enquanto materiais fosforescentes tendem a parecer mais verdes.
+Isto está ligado à diferença de emissão de energia e não diretamente à frequência da luz incidente, como no caso de cores refletivas, como podemos ver neste exemplo:
+
+![Venom x Eddie Red & Blue Drawing / Led Light Art](https://youtube.com/shorts/cNdkpnq1fAo?si=eReEU7nyqohbwFVy)
+
+Na fluorescência, o atraso na emissão é tão curto que a luz emitida tem um comprimento de onda mais curto, como o azul.
+Já em materiais fosforescentes, o processo de libertação de energia pode ser muito mais demorado, resultando em comprimentos de onda mais longos, como o verde.
+Estas mudanças da onda de comprimento da frequencia são chamadas Strokes Shift.
+
+[Phosphorescence vs Fluorescence](https://www.youtube.com/watch?v=2NO-qkL0ZPc)
+
+Por isso agora gostava de aplicar isto um bocado ao contrario no meu shader, onde o delay é baseado na cor.
+
+A partir do conhecimento que ganhei sobre command buffers no topico dos Shadow Maps, sabia que não poderia guardar a informação do alpha que precisaria para saber o delay a aplicar diretamente no shader.
+Para isto iria precisar de criar um script, que iria colocar em cada objeto com um material uv, para me guardar uma textura com o valor do alpha da minha textura.
+
+Aqui decidi tambem que ia passar a adicionar o material no Mesh Renderer a partir deste mesmo script.
+Porque visto que o material vai passar a ter uma textura conjunta a afetar o alpha, preciso que este não seja um shared material, de objeto para objeto.
+Isto não era um problema antes porque estavamos a calcular o alpha por vertex, dentro do shader, mas agora, se tivermos dois command buffers a escrever para o mesmo material, não vai funcionar como queremos.
+
+Isto foi algo que observei na minha primeira iteração do shader graph, onde queria usar o mesmo material base para todos os objetos, e modifica-lo por script.
+
+Não é muito prático, mas pelo que entendi aqui:
+
+[Is a phosphorescence shader possible? - Unity threads](https://discussions.unity.com/t/is-a-phosphorescence-shader-possible/551545/3)
+
+Não existe outra forma, não com buffers ou a guardar o valor de alpha no shader.
+
+#### Aplicação
+
+Comecei por criar o script, onde criei um command buffer com uma textura nova, que depois passaria para o material.
+
+Como só precisava do alpha do objeto globalmente, e não do depth em relação á minha spotlight especifica como para o shadow map, tive apenas de ir verificar em que metodo quereria chamar o meu command buffer na ordem do Unity:
+
+[Execution Order Unity](https://docs.unity3d.com/6000.0/Documentation/Manual/execution-order.html#:~:text=OnPostRender%20%3A%20Called%20after%20a%20camera%20finishes%20rendering%20the%20scene.)
+
+Usei este site como referencia para usar o command buffer em objetos especificos
+
+https://lindenreidblog.com/2018/09/13/using-command-buffers-in-unity-selective-bloom/
+
+Inicialmente pensei que esta textura, ao usar o DrawRenderer() do command buffer, iria cirar uma textura uv mapped, mas quando a vi no frame debugger percebi que era mais um render.
+
+Mas mesmo assim estava a retirar a cor do objeto, só tinha de o aplicar em camera view, em vez de uv.
+
+https://discussions.unity.com/t/urp-shader-screen-space/763351
+
+https://docs.unity3d.com/6000.0/Documentation/Manual/execution-order.html#:~:text=OnPostRender%20%3A%20Called%20after%20a%20camera%20finishes%20rendering%20the%20scene.
+https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Rendering.CommandBuffer.html
+
+Inicialmente ao tentar aplicar
+
+tempo dependente de cor que esta dependente de frequencia que esta deependente de system
+
 ### Optimizações do shader
 
 <https://docs.unity3d.com/Manual/SL-ShaderPerformance.html>

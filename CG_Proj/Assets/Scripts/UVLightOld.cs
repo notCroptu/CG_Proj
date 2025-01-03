@@ -50,22 +50,6 @@ public class UVLightOld : MonoBehaviour
         {
             Shader.SetGlobalVector(_lightPositionID, _uvLight.transform.position);
             Shader.SetGlobalVector(_spotLightDirID, -_uvLight.transform.forward);
-
-            float spotAngle = (_uvLight.spotAngle * Mathf.Deg2Rad);
-            Matrix4x4 projectionMatrix = Matrix4x4.Perspective(Camera.main.fieldOfView, 1.0f, _uvLight.shadowNearPlane, _uvLight.range);
-
-            projectionMatrix = GL.GetGPUProjectionMatrix(projectionMatrix, false);
-
-            Matrix4x4 lightViewMatrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(1, -1, -1))
-                * _uvLight.transform.localToWorldMatrix.inverse;
-
-            Matrix4x4 shadowMatrix = projectionMatrix * lightViewMatrix;
-            /*bug.Log("Matproj: " + projectionMatrix);
-            Debug.Log("Matview: " + lightViewMatrix);
-            Debug.Log("MatVX: " + shadowMatrix);*/
-
-            Shader.SetGlobalMatrix("_SpotlightViewMatrix", shadowMatrix);
-            Shader.SetGlobalMatrix("_SpotlightProjectionMatrix", projectionMatrix);
         }
     }
 
