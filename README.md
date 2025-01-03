@@ -527,6 +527,18 @@ Também experimentei transferir alguns cálculos personalizados para o vertex sh
 
 ### Conclusões
 
+Neste projeto desde o shader graph á transição para HLSL, aprendi especialmente o tanto de rigor matematico que requer ter criatividade artistica a fazer shaders.
+
+A dificuldade em arranjar fontes de informação para as minhas necessidades especificas a fazer este shader ajudou-me a procurar os fundamentos e a pensar também como os resolucionar por mim pópria.
+A calculadora gráfica que usei neste projeto ajudou-me especialmente como alguem que pensa visualmente.
+
+Por exemplo, não sabia antes disto como calcular uma spotlight, mas agora com este conhecimento já devo ter meio caminho andado para calcular uma point light.
+
+Apesa de ter concluido os objetivos que delimitei no inicio do projeto, gostava de ter conseguido explorar melhor a minha ideia de como implementar um delay de fluerescencia com o `command buffer` e `screen space`.
+
+Embora frustrante, este projeto trouxe-me uma nova perspetiva sobre os desafios técnicos que posso encontrar em projetos de shaders futuros.
+Foi um exercício valioso, e acredito que a experiência e as dificuldades encontradas serão úteis para resolver problemas semelhantes mais eficazmente no futuro.
+
 ### **Bibliografia**
 
 1. [Fields in the Light Struct from `GetAdditionalLight`](https://discussions.unity.com/t/trying-to-find-the-fields-on-the-light-struct-returned-by-getadditionallight/792693/4)
